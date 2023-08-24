@@ -9,7 +9,7 @@ pub struct EditorInit;
 impl EditorInit {
     pub fn display_title(width: usize) {
         let term_width = Terminal::width();
-        let title_str = format!("REditor v{}", env!("CARGO_PKG_VERSION"));
+        let title_str = format!("Rusditor v{}", env!("CARGO_PKG_VERSION"));
         let padding = (width - title_str.len()) / 2;
         let padding_str1 = " ".repeat(padding);
         let padding_str2 = " ".repeat(term_width - title_str.len() - padding);
