@@ -79,7 +79,7 @@ impl Editor {
 
         match dir {
             Direction::Left => {
-                let line_state_left = current_line.left_state()?;
+                let line_state_left = current_line.state_left()?;
                 if line_state_left.is_at_line_start {
                     if self.line_index > 1 {
                         self.move_cursor_vertical(Direction::Up)?;
@@ -90,7 +90,7 @@ impl Editor {
                 }
             }
             Direction::Right => {
-                let line_state_right = current_line.right_state()?;
+                let line_state_right = current_line.state_right()?;
                 if line_state_right.is_at_line_end {
                     if self.line_index < self.lines.len() {
                         self.move_cursor_vertical(Direction::Down)?;
@@ -100,7 +100,7 @@ impl Editor {
                     return Ok(());
                 }
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
         current_line.move_cursor_horizontal(dir)?;
         return Ok(());
@@ -138,35 +138,47 @@ impl Editor {
     }
 
     fn insert_new_line(&mut self) -> io::Result<()> {
-        let cursor_pos = Cursor::pos_row()?;
+        let mut label_width = self.label_width();
+        if self.lines.len() % 9 == 0 {
+            label_width += 1;
+        }
+
+        let cursor_pos_row = Cursor::pos_row()?;
+        let line_count = self.lines.len();
+        let current_line = &mut self.lines[self.line_index - 1];
 
         // vertical-end: `1` here means the top border,
         // subtracting 1 since the cursor position is start from 0.
-        let is_at_text_end = cursor_pos == (self.lines.len() + 1 - 1)
-            || cursor_pos == (self.lines.len() - self.overflow_top + 1 - 1);
+        let is_at_text_end = cursor_pos_row == (line_count + 1 - 1)
+            || cursor_pos_row == (line_count - self.overflow_top + 1 - 1);
+        let is_at_line_end = current_line.state_right()?.is_at_line_end;
 
-        self.line_index += 1;
-        let new_line = Line::new(self.line_index);
+        let mut new_line = Line::new(self.line_index + 1, label_width);
+        if !is_at_line_end {
+            // when input Enter, if cursor is not at line end,
+            // truncate current line and push truncated string
+            // into the new line.
+            let truncated_str = current_line.truncate()?;
+            new_line.push_str(&truncated_str);
+            new_line.move_cursor_to_start(label_width)?;
+            log(&format!("cursor pos: {}", Cursor::pos_col()?))?;
+        }
 
         if is_at_text_end {
+            // if is at the whole editor end,
+            // directly push new line;
             self.lines.push(new_line);
         } else {
-            let insert_pos = cursor_pos + self.overflow_top;
+            // or, insert new line.
+            let insert_pos = cursor_pos_row + self.overflow_top;
             self.lines.insert(insert_pos, new_line);
         }
 
-        if self.lines.len() > self.visible_area_height() {
-            self.overflow_top += 1;
-        } else {
-            Cursor::down(1)?;
-        }
+        self.move_cursor_vertical(Direction::Down)?;
 
         Cursor::save_pos()?;
         self.render_all()?;
         Cursor::restore_pos()?;
-
-        let label_width = self.label_width();
-        Cursor::move_to_col(label_width)?;
         return Ok(());
     }
 
@@ -200,7 +212,6 @@ impl Editor {
 
         self.line_index -= 1;
         if let Some(line) = previous_line {
-
             line.push_str(&poped_line.content);
             line.move_cursor_to_end(label_width)?;
         }
@@ -227,8 +238,8 @@ impl Editor {
         }
 
         let current_line = &mut self.lines[self.line_index - 1];
-        let line_left_state = current_line.left_state()?;
-        if line_left_state.is_at_line_start {
+        let line_state_left = current_line.state_left()?;
+        if line_state_left.is_at_line_start {
             self.delete_line()?;
         } else {
             current_line.delete_char()?;
@@ -241,7 +252,9 @@ impl Editor {
 impl Editor {
     pub fn new() -> Self {
         Self {
-            lines: vec![Line::new(1)],
+            // `1` here is index of the first line,
+            // `2` here is the width of "1 " in terminal.
+            lines: vec![Line::new(1, 2)],
             line_index: 1,
 
             overflow_top: 0,

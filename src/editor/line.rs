@@ -35,7 +35,8 @@ impl Line {
     fn is_at_right_end(&self) -> io::Result<bool> {
         return Ok(Cursor::pos_col()? == Terminal::width() - 1);
     }
-    pub fn left_state(&self) -> io::Result<LineStateLeft> {
+
+    pub fn state_left(&self) -> io::Result<LineStateLeft> {
         let is_at_left_end = self.is_at_left_end()?;
         let is_at_line_start = is_at_left_end && self.overflow_left == 0;
         return Ok(LineStateLeft {
@@ -43,7 +44,7 @@ impl Line {
             is_at_line_start,
         });
     }
-    pub fn right_state(&self) -> io::Result<LineStateRight> {
+    pub fn state_right(&self) -> io::Result<LineStateRight> {
         let cursor_pos_col = Cursor::pos_col()?;
         let is_at_right_end = self.is_at_right_end()?;
         let is_at_line_end = cursor_pos_col == (self.len() + self.label_width_cached)
@@ -61,14 +62,23 @@ impl Line {
         let term_width = Terminal::width();
         return term_width - self.label_width_cached - 1;
     }
+    fn overflow_refresh(&mut self) {
+        let visible_area_width = self.visible_area_width();
+        if self.len() > visible_area_width {
+            self.overflow_left = self.len() - visible_area_width - self.overflow_right;
+        } else {
+            self.overflow_left = 0;
+            self.overflow_right = 0;
+        }
+    }
 
     pub fn move_cursor_to_start(&mut self, label_width: usize) -> io::Result<()> {
-        Cursor::move_to_col(label_width)?;
         if self.len() >= self.visible_area_width() {
             self.overflow_right += self.overflow_left;
             self.overflow_left = 0;
             self.render(self.index_cached, label_width)?;
         }
+        Cursor::move_to_col(label_width)?;
         return Ok(());
     }
     pub fn move_cursor_to_end(&mut self, label_width: usize) -> io::Result<()> {
@@ -114,7 +124,7 @@ impl Line {
 
     pub fn insert_char(&mut self, ch: char) -> io::Result<()> {
         let cursor_pos = Cursor::pos_col()?;
-        let LineStateRight { is_at_line_end, .. } = self.right_state()?;
+        let LineStateRight { is_at_line_end, .. } = self.state_right()?;
 
         if is_at_line_end {
             self.content.push(ch);
@@ -136,7 +146,7 @@ impl Line {
     }
 
     pub fn delete_char(&mut self) -> io::Result<()> {
-        let LineStateRight { is_at_line_end, .. } = self.right_state()?;
+        let LineStateRight { is_at_line_end, .. } = self.state_right()?;
 
         if is_at_line_end {
             self.content.pop();
@@ -160,7 +170,7 @@ impl Line {
 }
 
 impl Line {
-    pub fn new(index: usize) -> Self {
+    pub fn new(index: usize, label_width: usize) -> Self {
         Self {
             content: String::new(),
 
@@ -168,7 +178,7 @@ impl Line {
             overflow_right: 0,
 
             index_cached: index,
-            label_width_cached: 0,
+            label_width_cached: label_width,
         }
     }
 
@@ -201,14 +211,19 @@ impl Line {
         return Ok(());
     }
 
-    #[inline]
     pub fn push_str(&mut self, str: &str) {
         self.content.push_str(str);
+        self.overflow_refresh();
+    }
 
-        let visible_area_width = self.visible_area_width();
-        if self.len() > visible_area_width {
-            self.overflow_left = self.len() - visible_area_width - self.overflow_right;
-        }
+    pub fn truncate(&mut self) -> io::Result<String> {
+        let truncate_pos = Cursor::pos_col()? - self.label_width_cached + self.overflow_left;
+        let mut res_str = String::new();
+
+        self.content[truncate_pos..].clone_into(&mut res_str);
+        self.content.truncate(truncate_pos);
+        self.overflow_refresh();
+        return Ok(res_str);
     }
 
     #[inline]
