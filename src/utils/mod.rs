@@ -1,16 +1,16 @@
-mod number_bit_count;
 mod logger;
+mod number_bit_count;
 
-pub mod terminal;
 pub mod cursor;
+pub mod terminal;
 
 use std::fmt::Display;
 
-pub use number_bit_count::number_bit_count;
 pub use logger::log;
+pub use number_bit_count::number_bit_count;
 
-pub use terminal::Terminal;
 pub use cursor::Cursor;
+pub use terminal::Terminal;
 
 // this function is used to replace Rust macro `println!`
 // since the println! macro can not normally

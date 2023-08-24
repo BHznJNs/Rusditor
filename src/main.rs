@@ -1,8 +1,8 @@
 mod editor;
 mod utils;
 
-use std::io;
 use editor::Editor;
+use std::io;
 
 fn main() -> io::Result<()> {
     let mut editor = Editor::new();

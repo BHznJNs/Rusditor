@@ -16,7 +16,7 @@ impl From<KeyCode> for Direction {
             KeyCode::Down => Self::Down,
             KeyCode::Left => Self::Left,
             KeyCode::Right => Self::Right,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }

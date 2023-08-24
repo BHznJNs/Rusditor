@@ -1,4 +1,7 @@
-use std::{io::{self, Write}, fs::{File, OpenOptions}};
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Write},
+};
 
 // output something into file
 // this function is used to debug.
