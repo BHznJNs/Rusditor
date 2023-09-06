@@ -1,8 +1,11 @@
+mod components;
 mod direction;
 mod init;
 mod line;
+mod mode;
+mod text_area;
 
-use std::io;
+use std::{io, fs};
 
 use crossterm::{
     event::{KeyCode, KeyModifiers},
@@ -16,6 +19,10 @@ use crate::utils::{log, number_bit_count, Cursor, Terminal};
 use direction::Direction;
 use init::EditorInit;
 use line::Line;
+use mode::EditorMode;
+use components::Components;
+
+use self::components::Component;
 
 pub struct Editor {
     lines: Vec<Line>,
@@ -23,15 +30,26 @@ pub struct Editor {
 
     overflow_top: usize,
     overflow_bottom: usize,
+
+    mode: EditorMode,
+    components: Components,
 }
 
-// short methods
+// base value calculating methods
 impl Editor {
-    // returns the longest line label width at left-side
+    #[inline]
     fn label_width(&self) -> usize {
+        // returns the longest line label width at left-side
         return number_bit_count(self.lines.len()) + 1;
     }
 
+    #[inline]
+    fn label_width_with(&self, value: usize) -> usize {
+        // calculate label_width with inputed value
+        return number_bit_count(value) + 1;
+    }
+
+    #[inline]
     fn visible_area_height(&self) -> usize {
         let term_height = Terminal::height();
         // `2` here means the top and bottom border.
@@ -42,24 +60,25 @@ impl Editor {
 // editing methods
 impl Editor {
     fn render_all(&mut self) -> io::Result<()> {
+        Cursor::save_pos()?;
         Cursor::move_to_row(1)?;
         Cursor::move_to_col(0)?;
 
         let label_width = self.label_width();
         let line_count = self.lines.len();
-        let lines_to_render =
-            &mut self.lines[self.overflow_top..(line_count - self.overflow_bottom)];
-        let lines_to_render_count = lines_to_render.len();
-        let mut line_index = self.overflow_top + 1;
 
-        for line in lines_to_render {
-            line.render(line_index, label_width)?;
+        let line_range = self.overflow_top..(line_count - self.overflow_bottom);
+        let lines_to_render = &mut self.lines[line_range.clone()];
+        let line_indices = line_range.map(|i| i + 1).collect::<Vec<usize>>();
 
+        let iter = line_indices.into_iter().zip(lines_to_render.iter_mut());
+        for (index, line) in iter {
+            line.render(index, label_width)?;
             Cursor::down(1)?;
-            line_index += 1;
         }
 
         // initialize the unused lines
+        let lines_to_render_count = lines_to_render.len();
         let visible_area_height = self.visible_area_height();
         if lines_to_render_count < visible_area_height {
             let diff = visible_area_height - lines_to_render_count;
@@ -70,6 +89,7 @@ impl Editor {
                 Cursor::down(1)?;
             }
         }
+        Cursor::restore_pos()?;
         return Ok(());
     }
 
@@ -79,8 +99,7 @@ impl Editor {
 
         match dir {
             Direction::Left => {
-                let line_state_left = current_line.state_left()?;
-                if line_state_left.is_at_line_start {
+                if current_line.is_at_line_start()? {
                     if self.line_index > 1 {
                         self.move_cursor_vertical(Direction::Up)?;
                         let current_line = self.lines.get_mut(self.line_index - 1).unwrap();
@@ -90,8 +109,7 @@ impl Editor {
                 }
             }
             Direction::Right => {
-                let line_state_right = current_line.state_right()?;
-                if line_state_right.is_at_line_end {
+                if current_line.is_at_line_end()? {
                     if self.line_index < self.lines.len() {
                         self.move_cursor_vertical(Direction::Down)?;
                         let current_line = self.lines.get_mut(self.line_index - 1).unwrap();
@@ -106,79 +124,84 @@ impl Editor {
         return Ok(());
     }
     fn move_cursor_vertical(&mut self, dir: Direction) -> io::Result<()> {
+        let cursor_pos = Cursor::pos_row()?;
         let target_line = match dir {
             Direction::Up => {
-                // let option_previous_line = self.lines.get(self.line_index - 2);
-                if self.line_index <= 1 {
+                let is_at_top_side = cursor_pos == 1;
+                let is_at_first_line = self.line_index == 1;
+                if is_at_first_line {
                     return Ok(());
                 }
-                let previous_line = self.lines.get(self.line_index - 2).unwrap();
                 self.line_index -= 1;
-                Cursor::up(1)?;
-                previous_line
+                if is_at_top_side {
+                    self.overflow_top -= 1;
+                    self.overflow_bottom += 1;
+                    self.render_all()?;
+                } else {
+                    Cursor::up(1)?;
+                }
+                self.lines.get(self.line_index - 1).unwrap()
             }
             Direction::Down => {
-                let Some(next_line) = self.lines.get(self.line_index) else {
+                let is_at_bottom_side = cursor_pos == Terminal::height() - 2;
+                let is_at_last_line = self.line_index == self.lines.len();
+                if is_at_last_line {
                     return Ok(());
-                };
+                }
                 self.line_index += 1;
-                Cursor::down(1)?;
-                next_line
+                if is_at_bottom_side {
+                    if self.lines.len() == self.visible_area_height() {
+                        self.overflow_bottom += 1;
+                    } else {
+                        self.overflow_top += 1;
+                        self.overflow_bottom -= 1;
+                    }
+                    self.render_all()?;
+                } else {
+                    Cursor::down(1)?;
+                }
+                self.lines.get(self.line_index - 1).unwrap()
             }
-            _ => unreachable!(),
+            _ => unreachable!()
         };
-
         let label_width = self.label_width();
         let cursor_pos = Cursor::pos_col()?;
+
         // if target_line is shorter than current line
-        if cursor_pos - label_width > target_line.len() {
+        if cursor_pos > target_line.len() + label_width {
             Cursor::left(cursor_pos - label_width - target_line.len())?;
         }
         return Ok(());
     }
 
-    fn insert_new_line(&mut self) -> io::Result<()> {
-        let mut label_width = self.label_width();
-        if self.lines.len() % 9 == 0 {
-            label_width += 1;
-        }
-
-        let cursor_pos_row = Cursor::pos_row()?;
-        let line_count = self.lines.len();
+    fn insert_line(&mut self) -> io::Result<()> {
+        let label_width = self.label_width_with(self.lines.len() + 1);
         let current_line = &mut self.lines[self.line_index - 1];
 
-        // vertical-end: `1` here means the top border,
-        // subtracting 1 since the cursor position is start from 0.
-        let is_at_text_end = cursor_pos_row == (line_count + 1 - 1)
-            || cursor_pos_row == (line_count - self.overflow_top + 1 - 1);
-        let is_at_line_end = current_line.state_right()?.is_at_line_end;
-
-        let mut new_line = Line::new(self.line_index + 1, label_width);
+        let is_at_line_end = current_line.is_at_line_end()?;
+        let mut new_line = Line::new(label_width);
         if !is_at_line_end {
             // when input Enter, if cursor is not at line end,
             // truncate current line and push truncated string
             // into the new line.
             let truncated_str = current_line.truncate()?;
             new_line.push_str(&truncated_str);
-            new_line.move_cursor_to_start(label_width)?;
-            log(&format!("cursor pos: {}", Cursor::pos_col()?))?;
         }
+        new_line.move_cursor_to_start(label_width)?;
 
-        if is_at_text_end {
-            // if is at the whole editor end,
-            // directly push new line;
-            self.lines.push(new_line);
+        // insert new line
+        let insert_pos = Cursor::pos_row()? + self.overflow_top;
+        self.lines.insert(insert_pos, new_line);
+
+        self.line_index += 1;
+        // scroll
+        if self.lines.len() > self.visible_area_height() {
+            self.overflow_top += 1;
         } else {
-            // or, insert new line.
-            let insert_pos = cursor_pos_row + self.overflow_top;
-            self.lines.insert(insert_pos, new_line);
+            Cursor::down(1)?;
         }
 
-        self.move_cursor_vertical(Direction::Down)?;
-
-        Cursor::save_pos()?;
         self.render_all()?;
-        Cursor::restore_pos()?;
         return Ok(());
     }
 
@@ -189,43 +212,31 @@ impl Editor {
     }
 
     fn delete_line(&mut self) -> io::Result<()> {
-        let cursor_pos = Cursor::pos_row()?;
-
-        let mut label_width = self.label_width();
-        if self.lines.len() % 10 == 0 {
-            label_width -= 1;
-        }
-
-        let is_at_text_end = cursor_pos == (self.lines.len() + 1 - 1)
-            || cursor_pos == (self.lines.len() - self.overflow_top + 1 - 1);
-
-        let (previous_line, poped_line) = if is_at_text_end {
-            let last_line = self.lines.pop().unwrap();
-            let previous_line = self.lines.last_mut();
-            (previous_line, last_line)
-        } else {
-            let remove_pos = Cursor::pos_col()? - 1 + self.overflow_top;
+        let label_width = self.label_width_with(self.lines.len() - 1);
+        let (previous_line, deleted_line) = {
+            let remove_pos = Cursor::pos_row()? - 1 + self.overflow_top;
             let removed_line = self.lines.remove(remove_pos);
             let previous_line = self.lines.get_mut(remove_pos - 1);
             (previous_line, removed_line)
         };
-
-        self.line_index -= 1;
         if let Some(line) = previous_line {
-            line.push_str(&poped_line.content);
+            line.push_str(deleted_line.content());
             line.move_cursor_to_end(label_width)?;
-        }
 
-        if self.lines.len() >= self.visible_area_height() {
+            for _ in 0..deleted_line.len() {
+                line.move_cursor_horizontal(Direction::Left)?;
+            }
+        }
+        self.line_index -= 1;
+        // scroll
+        let is_overflowed = self.lines.len() >= self.visible_area_height();
+        if is_overflowed && self.overflow_top > 0 {
             self.overflow_top -= 1;
         } else {
             Cursor::up(1)?;
         }
-
         // rerender
-        Cursor::save_pos()?;
         self.render_all()?;
-        Cursor::restore_pos()?;
         return Ok(());
     }
 
@@ -238,8 +249,7 @@ impl Editor {
         }
 
         let current_line = &mut self.lines[self.line_index - 1];
-        let line_state_left = current_line.state_left()?;
-        if line_state_left.is_at_line_start {
+        if current_line.is_at_line_start()? {
             self.delete_line()?;
         } else {
             current_line.delete_char()?;
@@ -248,17 +258,18 @@ impl Editor {
     }
 }
 
-// public methods
+// Non-editing methods
 impl Editor {
     pub fn new() -> Self {
         Self {
-            // `1` here is index of the first line,
-            // `2` here is the width of "1 " in terminal.
-            lines: vec![Line::new(1, 2)],
+            lines: vec![],
             line_index: 1,
 
             overflow_top: 0,
             overflow_bottom: 0,
+
+            mode: EditorMode::Normal,
+            components: Components::new(),
         }
     }
 
@@ -271,11 +282,105 @@ impl Editor {
         EditorInit::display_title(term_width);
         EditorInit::display_border(term_width)?;
 
+        // lines.is_empty() -> no file reading
+        if self.lines.is_empty() {
+            // `2` here is the width of line label ("1 ") in terminal.
+            self.lines.push(Line::new(2));
+        }
+
+        // move cursor to start of first line
+        Cursor::move_to_col(1)?;
         let label_width = self.label_width();
         self.lines
-            .last_mut()
+            .first_mut()
             .unwrap()
-            .render(self.line_index, label_width)?;
+            .move_cursor_to_start(label_width)?;
+    
+        self.render_all()?;
+        return Ok(());
+    }
+
+    pub fn read_file(&mut self, path: &str) -> io::Result<()> {
+        self.components.file_saver.set_path(path);
+        let file_read_res = fs::read_to_string(path);
+        match file_read_res {
+            Ok(content) => {
+                let file_lines = content.lines();
+                let line_count = file_lines.clone().count();
+                let visible_area_height = self.visible_area_height();
+                let label_width = self.label_width_with(line_count);
+
+                // set `overflow_bottom`
+                if line_count > visible_area_height {
+                    self.overflow_bottom = line_count - visible_area_height;
+                }
+
+                self.lines = file_lines.map(|l| {
+                    let mut new_line = Line::new(label_width);
+                    new_line.push_str(l);
+                    new_line
+                }).collect();
+            }
+            Err(_) => {
+                self.close()?;
+                panic!("File reading failed!")
+            }
+        };
+        return Ok(());
+    }
+
+    // --- --- --- --- --- ---
+
+    #[inline]
+    pub fn close(&self) -> io::Result<()> {
+        disable_raw_mode()?;
+        execute!(io::stdout(), LeaveAlternateScreen)?;
+        return Ok(());
+    }
+
+    pub fn content(&self) -> String {
+        let mut buf = String::new();
+        let mut iter = self.lines.iter();
+        while let Some(line) = iter.next() {
+            buf += line.content();
+            if iter.len() > 0 {
+                buf += "\r\n";
+            }
+        }
+        return buf;
+    }
+
+    // --- --- --- --- --- ---
+
+    fn toggle_mode(&mut self, mode: EditorMode) -> io::Result<()> {
+        match self.mode {
+            // set mode
+            EditorMode::Normal => {
+                Cursor::save_pos()?;
+                self.mode = mode;
+                match mode {
+                    EditorMode::Saving => {
+                        let current_content = self.content();
+                        self.components.file_saver.set_content(current_content);
+                        &mut self.components.file_saver
+                    }
+                    _ => unreachable!(),
+                }
+                .open()?
+            }
+            // restore to normal mode
+            m if m == mode => {
+                // restore the covered line
+                let label_width = self.label_width();
+                let covered_pos = Cursor::pos_row()? + self.overflow_top - 1;
+                let covered_line = &mut self.lines[covered_pos];
+                covered_line.render(covered_pos + 1, label_width)?;
+
+                Cursor::restore_pos()?;
+                self.mode = EditorMode::Normal;
+            }
+            _ => unreachable!(),
+        }
         return Ok(());
     }
 
@@ -291,11 +396,15 @@ impl Editor {
                 };
 
                 match ch {
-                    'x' => todo!(),
-                    'c' => todo!(),
-                    'v' => todo!(),
+                    's' => self.toggle_mode(EditorMode::Saving)?,
                     _ => {}
                 }
+                continue;
+            }
+
+            if self.mode != EditorMode::Normal {
+                self.components.resolve(self.mode, key)?;
+                continue;
             }
 
             match key.code {
@@ -310,7 +419,7 @@ impl Editor {
                 }
 
                 KeyCode::Backspace => self.delete()?,
-                KeyCode::Enter => self.insert_new_line()?,
+                KeyCode::Enter => self.insert_line()?,
                 KeyCode::Char(ch) => {
                     if !ch.is_ascii() {
                         // avoid Non-ASCII characters
@@ -321,9 +430,7 @@ impl Editor {
                 _ => {}
             }
         }
-
-        disable_raw_mode()?;
-        execute!(io::stdout(), LeaveAlternateScreen)?;
+        self.close()?;
         return Ok(());
     }
 }
