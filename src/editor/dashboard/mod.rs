@@ -2,18 +2,20 @@ mod cursor_pos;
 mod state;
 
 use std::io;
+
 use crossterm::style::Stylize;
 
 pub use state::EditorState;
-use cursor_pos::CursorPos;
+
 use crate::utils::{Cursor, Terminal};
+use cursor_pos::CursorPos;
 
 pub struct EditorDashboard {
     cursor_pos: CursorPos,
     state: EditorState,
 
     // this cursor position is used to temporarily
-    // save and restore cursor. 
+    // save and restore cursor.
     temp_cursor_pos: CursorPos,
 }
 

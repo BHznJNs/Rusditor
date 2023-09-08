@@ -1,6 +1,7 @@
 use std::{
+    fmt::Display,
     fs::{File, OpenOptions},
-    io::{self, Write}, fmt::Display,
+    io::{self, Write},
 };
 
 // output something into file

@@ -2,7 +2,7 @@ mod editor;
 mod utils;
 
 use editor::Editor;
-use std::{io, env, path::Path};
+use std::{env, io, path::Path};
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();

@@ -7,10 +7,10 @@ mod line;
 mod mode;
 mod text_area;
 
-use std::{io, fs};
+use std::{fs, io};
 
 use crossterm::{
-    event::{KeyCode, KeyModifiers, KeyEvent},
+    event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::Stylize,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -27,7 +27,6 @@ use components::{Component, EditorComponentManager};
 use dashboard::{EditorDashboard, EditorState};
 
 use self::components::FileSaver;
-
 
 pub struct Editor {
     lines: Vec<EditorLine>,
@@ -168,7 +167,7 @@ impl Editor {
                 }
                 self.lines.get(self.line_index - 1).unwrap()
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         let label_width = self.label_width();
         let cursor_pos = Cursor::pos_col()?;
@@ -315,7 +314,7 @@ impl Editor {
             .first_mut()
             .unwrap()
             .move_cursor_to_start(label_width)?;
-    
+
         self.render_all()?;
         return Ok(());
     }
@@ -335,11 +334,13 @@ impl Editor {
                     self.overflow_bottom = line_count - visible_area_height;
                 }
 
-                self.lines = file_lines.map(|l| {
-                    let mut new_line = EditorLine::new(label_width);
-                    new_line.push_str(l);
-                    new_line
-                }).collect();
+                self.lines = file_lines
+                    .map(|l| {
+                        let mut new_line = EditorLine::new(label_width);
+                        new_line.push_str(l);
+                        new_line
+                    })
+                    .collect();
             }
             Err(_) => {
                 self.close()?;
@@ -453,9 +454,7 @@ impl Editor {
                 KeyCode::Left | KeyCode::Right => {
                     self.move_cursor_horizontal(Direction::from(key.code))?;
                 }
-                KeyCode::Backspace
-                | KeyCode::Enter
-                | KeyCode::Char(_) => {
+                KeyCode::Backspace | KeyCode::Enter | KeyCode::Char(_) => {
                     self.dashboard.set_state(EditorState::Modified)?;
                     match key.code {
                         KeyCode::Backspace => self.delete()?,
@@ -467,7 +466,7 @@ impl Editor {
                             }
                             self.insert_char(ch)?;
                         }
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     }
                 }
                 _ => {}

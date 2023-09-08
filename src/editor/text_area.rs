@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::utils::{Terminal, Cursor};
+use crate::utils::{Cursor, Terminal};
 
 use super::direction::Direction;
 

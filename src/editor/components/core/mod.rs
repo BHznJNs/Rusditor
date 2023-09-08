@@ -3,6 +3,7 @@ mod controller;
 pub(super) use controller::ComponentController;
 
 use std::io;
+
 use crossterm::event::KeyCode;
 
 pub trait Component {

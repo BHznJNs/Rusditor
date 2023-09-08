@@ -1,4 +1,8 @@
-use std::{io, path::Path, fs::{File, self}};
+use std::{
+    fs::{self, File},
+    io,
+    path::Path,
+};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -14,10 +18,7 @@ pub struct FileSaver {
 const DEFAULT_FILE_NAME: &str = "temp.txt";
 impl FileSaver {
     pub fn new() -> Self {
-        let mut text_area = TextArea::new(
-            Self::PROMPT.len(),
-            Self::BUTTON.len(),
-        );
+        let mut text_area = TextArea::new(Self::PROMPT.len(), Self::BUTTON.len());
         text_area.set_content(DEFAULT_FILE_NAME);
 
         Self {
@@ -72,7 +73,7 @@ impl Component for FileSaver {
     fn key_resolve(&mut self, key: KeyCode) -> io::Result<()> {
         match key {
             KeyCode::Enter => self.save()?,
-            k if ComponentController::is_edit_key(&k) => self.comp.edit(key)?,
+            k if ComponentController::is_editing_key(&k) => self.comp.edit(key)?,
             _ => {}
         }
         return Ok(());

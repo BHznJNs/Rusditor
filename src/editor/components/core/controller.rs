@@ -1,8 +1,11 @@
 use std::io;
 
-use crossterm::{style::Stylize, event::KeyCode};
+use crossterm::{event::KeyCode, style::Stylize};
 
-use crate::{editor::{text_area::TextArea, direction::Direction}, utils::{Cursor, Terminal}};
+use crate::{
+    editor::{direction::Direction, text_area::TextArea},
+    utils::{Cursor, Terminal},
+};
 
 pub struct ComponentController {
     pub prompt: &'static str,
@@ -28,12 +31,9 @@ impl ComponentController {
     }
 
     #[inline]
-    pub fn is_edit_key(key: &KeyCode) -> bool {
+    pub fn is_editing_key(key: &KeyCode) -> bool {
         match key {
-            KeyCode::Backspace
-            | KeyCode::Left
-            | KeyCode::Right
-            | KeyCode::Char(_) => true,
+            KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_) => true,
             _ => false,
         }
     }
@@ -49,7 +49,7 @@ impl ComponentController {
             KeyCode::Left => text_area.move_cursor_horizontal(Direction::Left)?,
             KeyCode::Right => text_area.move_cursor_horizontal(Direction::Right)?,
             KeyCode::Char(ch) => text_area.insert_char(ch)?,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
         return Ok(());
     }
