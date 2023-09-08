@@ -10,12 +10,11 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::mode::EditorMode;
 
-
-pub struct Components {
+pub struct EditorComponentManager {
     pub file_saver: FileSaver,
 }
 
-impl Components {
+impl EditorComponentManager {
     pub fn new() -> Self {
         Self {
             file_saver: FileSaver::new(),

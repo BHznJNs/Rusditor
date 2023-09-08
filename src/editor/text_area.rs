@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::utils::{Terminal, Cursor, log};
+use crate::utils::{Terminal, Cursor};
 
 use super::direction::Direction;
 
@@ -162,9 +162,7 @@ impl TextArea {
     }
 
     pub fn insert_char(&mut self, ch: char) -> io::Result<()> {
-        let cursor_pos = Cursor::pos_col()?;
-
-        let insert_pos = cursor_pos - self.margin_left + self.overflow_left;
+        let insert_pos = self.cursor_pos()?;
         self.content.insert(insert_pos, ch);
 
         if self.content.len() > self.visible_area_width() {
@@ -181,7 +179,7 @@ impl TextArea {
             return Ok(());
         }
 
-        let remove_pos = Cursor::pos_col()? - self.margin_left + self.overflow_left - 1;
+        let remove_pos = self.cursor_pos()? - 1;
         self.content.remove(remove_pos);
 
         if self.content.len() >= self.visible_area_width() {
@@ -204,7 +202,7 @@ impl TextArea {
     }
 
     pub fn truncate(&mut self) -> io::Result<String> {
-        let truncate_pos = Cursor::pos_col()? - self.margin_left + self.overflow_left;
+        let truncate_pos = self.cursor_pos()?;
         let mut res_str = String::new();
 
         self.content[truncate_pos..].clone_into(&mut res_str);
@@ -214,12 +212,19 @@ impl TextArea {
     }
 
     #[inline]
+    pub fn cursor_pos(&self) -> io::Result<usize> {
+        let cursor_pos_col = Cursor::pos_col()?;
+        let value = cursor_pos_col - self.margin_left + self.overflow_left;
+        return Ok(value);
+    }
+
+    #[inline]
     pub fn content<'a>(&'a self) -> &'a str {
-        return &self.content;
+        &self.content
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        return self.content.len();
+        self.content.len()
     }
 }

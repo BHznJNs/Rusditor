@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::utils::{log, number_bit_count, Cursor, Terminal};
+use crate::utils::{number_bit_count, Cursor, Terminal};
 use crossterm::style::Stylize;
 
 use super::{
@@ -8,12 +8,12 @@ use super::{
     text_area::TextArea,
 };
 
-pub struct Line {
+pub struct EditorLine {
     text_area: TextArea,
 }
 
 // state methods
-impl Line {
+impl EditorLine {
     #[inline]
     pub fn is_at_line_start(&self) -> io::Result<bool> {
         Ok(self.text_area.state_left()?.is_at_area_start)
@@ -25,7 +25,7 @@ impl Line {
 }
 
 // editing methods
-impl Line {
+impl EditorLine {
     #[inline]
     pub fn move_cursor_to_start(&mut self, label_width: usize) -> io::Result<()> {
         self.update_label_width(label_width);
@@ -51,7 +51,7 @@ impl Line {
     }
 }
 
-impl Line {
+impl EditorLine {
     pub fn new(width: usize) -> Self {
         Self {
             text_area: TextArea::new(width, 1),
@@ -80,8 +80,13 @@ impl Line {
     }
 
     #[inline]
+    pub fn cursor_pos(&self) -> io::Result<usize> {
+        self.text_area.cursor_pos()
+    }
+
+    #[inline]
     pub fn content<'a>(&'a self) -> &'a str {
-        return self.text_area.content();
+        self.text_area.content()
     }
 
     #[inline]

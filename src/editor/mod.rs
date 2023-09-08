@@ -1,4 +1,6 @@
 mod components;
+mod dashboard;
+
 mod direction;
 mod init;
 mod line;
@@ -8,31 +10,35 @@ mod text_area;
 use std::{io, fs};
 
 use crossterm::{
-    event::{KeyCode, KeyModifiers},
+    event::{KeyCode, KeyModifiers, KeyEvent},
     execute,
     style::Stylize,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::utils::{log, number_bit_count, Cursor, Terminal};
+use crate::utils::{number_bit_count, Cursor, Terminal};
 
 use direction::Direction;
 use init::EditorInit;
-use line::Line;
+use line::EditorLine;
 use mode::EditorMode;
-use components::Components;
 
-use self::components::Component;
+use components::{Component, EditorComponentManager};
+use dashboard::{EditorDashboard, EditorState};
+
+use self::components::FileSaver;
+
 
 pub struct Editor {
-    lines: Vec<Line>,
+    lines: Vec<EditorLine>,
     line_index: usize, // current editing line index
 
     overflow_top: usize,
     overflow_bottom: usize,
 
     mode: EditorMode,
-    components: Components,
+    components: EditorComponentManager,
+    dashboard: EditorDashboard,
 }
 
 // base value calculating methods
@@ -179,7 +185,7 @@ impl Editor {
         let current_line = &mut self.lines[self.line_index - 1];
 
         let is_at_line_end = current_line.is_at_line_end()?;
-        let mut new_line = Line::new(label_width);
+        let mut new_line = EditorLine::new(label_width);
         if !is_at_line_end {
             // when input Enter, if cursor is not at line end,
             // truncate current line and push truncated string
@@ -214,7 +220,7 @@ impl Editor {
     fn delete_line(&mut self) -> io::Result<()> {
         let label_width = self.label_width_with(self.lines.len() - 1);
         let (previous_line, deleted_line) = {
-            let remove_pos = Cursor::pos_row()? - 1 + self.overflow_top;
+            let remove_pos = Cursor::pos_row()? + self.overflow_top - 1;
             let removed_line = self.lines.remove(remove_pos);
             let previous_line = self.lines.get_mut(remove_pos - 1);
             (previous_line, removed_line)
@@ -258,6 +264,19 @@ impl Editor {
     }
 }
 
+// callback resolver methods
+impl Editor {
+    fn callbacks_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
+        match self.mode {
+            EditorMode::Saving if FileSaver::is_save_callback_key(key) => {
+                self.dashboard.set_state(EditorState::Saved)?;
+            }
+            _ => {}
+        }
+        return Ok(());
+    }
+}
+
 // Non-editing methods
 impl Editor {
     pub fn new() -> Self {
@@ -269,7 +288,8 @@ impl Editor {
             overflow_bottom: 0,
 
             mode: EditorMode::Normal,
-            components: Components::new(),
+            components: EditorComponentManager::new(),
+            dashboard: EditorDashboard::new(),
         }
     }
 
@@ -278,18 +298,18 @@ impl Editor {
         enable_raw_mode()?;
         Cursor::move_to_left_top()?;
 
-        let term_width = Terminal::width();
-        EditorInit::display_title(term_width);
-        EditorInit::display_border(term_width)?;
+        EditorInit::display_title();
+        EditorInit::display_border()?;
+        self.dashboard.render()?;
 
-        // lines.is_empty() -> no file reading
+        // lines.is_empty() == true -> no file reading
         if self.lines.is_empty() {
             // `2` here is the width of line label ("1 ") in terminal.
-            self.lines.push(Line::new(2));
+            self.lines.push(EditorLine::new(2));
         }
 
         // move cursor to start of first line
-        Cursor::move_to_col(1)?;
+        Cursor::move_to_row(1)?;
         let label_width = self.label_width();
         self.lines
             .first_mut()
@@ -316,7 +336,7 @@ impl Editor {
                 }
 
                 self.lines = file_lines.map(|l| {
-                    let mut new_line = Line::new(label_width);
+                    let mut new_line = EditorLine::new(label_width);
                     new_line.push_str(l);
                     new_line
                 }).collect();
@@ -338,7 +358,7 @@ impl Editor {
         return Ok(());
     }
 
-    pub fn content(&self) -> String {
+    fn content(&self) -> String {
         let mut buf = String::new();
         let mut iter = self.lines.iter();
         while let Some(line) = iter.next() {
@@ -348,6 +368,14 @@ impl Editor {
             }
         }
         return buf;
+    }
+
+    fn dashboard_cursor_pos_refresh(&mut self) -> io::Result<()> {
+        let current_line = &self.lines[self.line_index - 1];
+        let current_col = current_line.cursor_pos()? + 1;
+        let current_row = Cursor::pos_row()? + self.overflow_top;
+        self.dashboard.set_cursor_pos(current_row, current_col)?;
+        return Ok(());
     }
 
     // --- --- --- --- --- ---
@@ -362,6 +390,7 @@ impl Editor {
                     EditorMode::Saving => {
                         let current_content = self.content();
                         self.components.file_saver.set_content(current_content);
+                        self.dashboard.set_state(EditorState::Saving)?;
                         &mut self.components.file_saver
                     }
                     _ => unreachable!(),
@@ -403,10 +432,17 @@ impl Editor {
             }
 
             if self.mode != EditorMode::Normal {
+                if key.code == KeyCode::Esc {
+                    // use key `Esc` to restore to normal mode
+                    self.toggle_mode(self.mode)?;
+                    continue;
+                }
                 self.components.resolve(self.mode, key)?;
+                self.callbacks_resolve(key)?;
                 continue;
             }
 
+            // will enter matches in normal mode
             match key.code {
                 // input `Escape` to exit
                 KeyCode::Esc => break,
@@ -417,18 +453,26 @@ impl Editor {
                 KeyCode::Left | KeyCode::Right => {
                     self.move_cursor_horizontal(Direction::from(key.code))?;
                 }
-
-                KeyCode::Backspace => self.delete()?,
-                KeyCode::Enter => self.insert_line()?,
-                KeyCode::Char(ch) => {
-                    if !ch.is_ascii() {
-                        // avoid Non-ASCII characters
-                        continue;
+                KeyCode::Backspace
+                | KeyCode::Enter
+                | KeyCode::Char(_) => {
+                    self.dashboard.set_state(EditorState::Modified)?;
+                    match key.code {
+                        KeyCode::Backspace => self.delete()?,
+                        KeyCode::Enter => self.insert_line()?,
+                        KeyCode::Char(ch) => {
+                            if !ch.is_ascii() {
+                                // avoid Non-ASCII characters
+                                continue;
+                            }
+                            self.insert_char(ch)?;
+                        }
+                        _ => unreachable!()
                     }
-                    self.insert_char(ch)?;
                 }
                 _ => {}
             }
+            self.dashboard_cursor_pos_refresh()?;
         }
         self.close()?;
         return Ok(());

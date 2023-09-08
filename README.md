@@ -10,4 +10,4 @@ A simple text editor runs on terminals.
 | --- | --- |
 | Ctrl + s | Open / Close file saving component |
 | Enter (When file-saver opened) | Write file |
-| Esc | Exit program |
+| Esc | Restore to normal mode (not in normal mode) / Exit program (in normal mode) |

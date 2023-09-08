@@ -1,6 +1,6 @@
 use std::{io, path::Path, fs::{File, self}};
 
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::editor::text_area::TextArea;
 
@@ -42,6 +42,11 @@ impl FileSaver {
         let bytes_to_write = self.editor_content.as_bytes();
         fs::write(target_path_str, bytes_to_write)?;
         return Ok(());
+    }
+
+    #[inline]
+    pub fn is_save_callback_key(key: KeyEvent) -> bool {
+        key.modifiers == KeyModifiers::NONE && key.code == KeyCode::Enter
     }
 
     #[inline]

@@ -2,14 +2,18 @@ mod editor;
 mod utils;
 
 use editor::Editor;
-use std::{io, env};
+use std::{io, env, path::Path};
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let mut editor = Editor::new();
 
     if args.len() > 1 {
-        editor.read_file(&args[1])?;
+        let file_path_str = &args[1];
+        let file_path = Path::new(file_path_str);
+        if file_path.exists() {
+            editor.read_file(file_path_str)?;
+        }
     }
 
     if cfg!(debug_assertions) {
