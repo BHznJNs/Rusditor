@@ -7,18 +7,30 @@ use crate::{
     utils::{Cursor, Terminal},
 };
 
+#[derive(Clone)]
+
 pub struct ComponentController {
     pub prompt: &'static str,
     pub button: &'static str,
     pub text_area: TextArea,
 
-    pub position: usize, // position to show
+    // verticle position to show,
+    // if less than zero, equal to
+    // Terminal::height() - position
+    pub position: isize,
+
     pub editable: bool,
 }
 
 impl ComponentController {
     pub fn open(&mut self) -> io::Result<()> {
-        Cursor::move_to_row(self.position)?;
+        let render_pos = if self.position >= 0 {
+            self.position as usize
+        } else {
+            (Terminal::height() as isize + self.position) as usize
+        };
+
+        Cursor::move_to_row(render_pos)?;
         Cursor::move_to_col(0)?;
         print!("{}", self.prompt.bold().black().on_white());
 
@@ -31,7 +43,7 @@ impl ComponentController {
     }
 
     #[inline]
-    pub fn is_editing_key(key: &KeyCode) -> bool {
+    pub fn is_editing_key(key: KeyCode) -> bool {
         match key {
             KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_) => true,
             _ => false,

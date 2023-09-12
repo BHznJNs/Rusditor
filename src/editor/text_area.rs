@@ -3,6 +3,7 @@ use std::io;
 use crate::utils::{Cursor, Terminal};
 
 use super::direction::Direction;
+#[derive(Clone)]
 
 pub struct TextArea {
     content: String,

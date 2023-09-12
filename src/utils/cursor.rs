@@ -23,6 +23,7 @@ impl Cursor {
         Self::move_to_row(0)?;
         return Ok(());
     }
+
     pub fn move_to_col(target_col: usize) -> io::Result<()> {
         execute!(io::stdout(), cursor::MoveToColumn(target_col as u16))
     }

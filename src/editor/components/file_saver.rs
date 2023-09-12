@@ -15,11 +15,12 @@ pub struct FileSaver {
     comp: ComponentController,
 }
 
-const DEFAULT_FILE_NAME: &str = "temp.txt";
 impl FileSaver {
+    const DEFAULT_FILE_NAME: &str = "temp.txt";
+
     pub fn new() -> Self {
         let mut text_area = TextArea::new(Self::PROMPT.len(), Self::BUTTON.len());
-        text_area.set_content(DEFAULT_FILE_NAME);
+        text_area.set_content(Self::DEFAULT_FILE_NAME);
 
         Self {
             editor_content: String::new(),
@@ -73,7 +74,7 @@ impl Component for FileSaver {
     fn key_resolve(&mut self, key: KeyCode) -> io::Result<()> {
         match key {
             KeyCode::Enter => self.save()?,
-            k if ComponentController::is_editing_key(&k) => self.comp.edit(key)?,
+            k if ComponentController::is_editing_key(k) => self.comp.edit(key)?,
             _ => {}
         }
         return Ok(());

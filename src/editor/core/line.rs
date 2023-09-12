@@ -1,9 +1,10 @@
 use std::io;
 
-use crate::utils::{number_bit_count, Cursor, Terminal};
+use crate::{
+    editor::{direction::Direction, text_area::TextArea},
+    utils::{number_bit_count, Cursor, Terminal},
+};
 use crossterm::style::Stylize;
-
-use super::{direction::Direction, text_area::TextArea};
 
 pub struct EditorLine {
     text_area: TextArea,
