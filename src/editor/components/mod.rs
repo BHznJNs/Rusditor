@@ -3,8 +3,8 @@ mod file_saver;
 mod positioner;
 
 pub use self::core::Component;
-pub use positioner::Positioner;
 pub use file_saver::FileSaver;
+pub use positioner::Positioner;
 
 use std::io;
 
@@ -29,7 +29,7 @@ impl EditorComponentManager {
         match current_mode {
             EditorMode::Saving => self.file_saver.key_resolve(key.code)?,
             EditorMode::Positioning => self.positioner.key_resolve(key.code)?,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
         return Ok(());
     }

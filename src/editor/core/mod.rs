@@ -1,8 +1,8 @@
+mod dashboard;
 mod init;
 mod line;
 mod mode;
 mod state;
-mod dashboard;
 
 use std::{fs, io};
 
@@ -13,17 +13,20 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::utils::{number_bit_count, Cursor, Terminal, log};
+use crate::utils::{log, number_bit_count, Cursor, Terminal};
 
 pub use mode::EditorMode;
 pub use state::EditorState;
 
+use dashboard::EditorDashboard;
 use init::EditorInit;
 use line::EditorLine;
-use dashboard::EditorDashboard;
 
-use super::{components::{EditorComponentManager, FileSaver, Component, Positioner}, cursor_pos::EditorCursorPos};
 use super::direction::Direction;
+use super::{
+    components::{Component, EditorComponentManager, FileSaver, Positioner},
+    cursor_pos::EditorCursorPos,
+};
 
 pub struct Editor {
     lines: Vec<EditorLine>,
@@ -268,7 +271,7 @@ impl Editor {
     }
 
     fn check_cursor_pos(&self, pos: EditorCursorPos) -> bool {
-        let EditorCursorPos {row, col} = pos;
+        let EditorCursorPos { row, col } = pos;
         let is_row_overflow = row > self.lines.len();
         let is_col_overflow = if is_row_overflow {
             true
@@ -284,7 +287,7 @@ impl Editor {
         let target_row = target_pos.row;
         let (dir, diff) = if target_row > self.current_row {
             (Direction::Down, target_row - self.current_row)
-        }  else {
+        } else {
             (Direction::Up, self.current_row - target_row)
         };
         for _ in 0..diff {
@@ -472,7 +475,7 @@ impl Editor {
                 self.mode = EditorMode::Normal;
                 self.dashboard.restore_state()?;
             }
-            _ => {},
+            _ => {}
         }
         return Ok(());
     }

@@ -2,10 +2,7 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::editor::{
-    cursor_pos::EditorCursorPos,
-    text_area::TextArea,
-};
+use crate::editor::{cursor_pos::EditorCursorPos, text_area::TextArea};
 
 use super::{core::ComponentController, Component};
 
