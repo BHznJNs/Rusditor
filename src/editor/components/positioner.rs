@@ -59,8 +59,8 @@ impl Component for Positioner {
 
     #[inline]
     fn open(&mut self) -> io::Result<()> {
-        self.comp.text_area.move_cursor_to_start()?;
         self.comp.open()?;
+        self.comp.text_area.move_cursor_to_start()?;
         return Ok(());
     }
 
