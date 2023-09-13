@@ -1,7 +1,7 @@
 use crate::utils::LoopTraverser;
 
 pub struct History {
-    list: LoopTraverser<String>
+    list: LoopTraverser<String>,
 }
 
 impl History {

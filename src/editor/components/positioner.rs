@@ -15,7 +15,9 @@ impl Positioner {
     pub fn new() -> Self {
         let initial_cursor_pos = EditorCursorPos { row: 1, col: 1 };
         let mut controller = Self::init_controller();
-        controller.text_area.set_placeholder(&initial_cursor_pos.short_display());
+        controller
+            .text_area
+            .set_placeholder(&initial_cursor_pos.short_display());
         return Self {
             target: initial_cursor_pos,
             comp: controller,

@@ -1,7 +1,7 @@
 mod core;
 mod file_saver;
-mod positioner;
 mod finder;
+mod positioner;
 
 pub use self::core::Component;
 pub use file_saver::FileSaver;

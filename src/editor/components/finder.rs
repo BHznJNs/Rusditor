@@ -2,7 +2,10 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{editor::{cursor_pos::EditorCursorPos, history::History}, utils::LoopTraverser};
+use crate::{
+    editor::{cursor_pos::EditorCursorPos, history::History},
+    utils::LoopTraverser,
+};
 
 use super::{core::ComponentController, Component};
 
@@ -75,7 +78,7 @@ impl Component for Finder {
                 let history_content = match key {
                     KeyCode::Up => self.history.previous(),
                     KeyCode::Down => self.history.next(),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 if let Some(str) = history_content {
                     let text_area = &mut self.comp.text_area;

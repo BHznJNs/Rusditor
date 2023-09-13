@@ -28,7 +28,7 @@ impl From<EditorMode> for EditorState {
             EditorMode::Saving => Self::Saving,
             EditorMode::Positioning => Self::Positioning,
             EditorMode::Finding => Self::Finding,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
