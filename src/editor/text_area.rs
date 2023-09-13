@@ -1,5 +1,7 @@
 use std::io;
 
+use crossterm::style::Stylize;
+
 use crate::utils::{Cursor, Terminal};
 
 use super::direction::Direction;
@@ -7,6 +9,7 @@ use super::direction::Direction;
 
 pub struct TextArea {
     content: String,
+    placeholder: String,
 
     pub margin_left: usize,
     pub margin_right: usize,
@@ -135,6 +138,7 @@ impl TextArea {
     pub fn new(margin_left: usize, margin_right: usize) -> Self {
         Self {
             content: String::new(),
+            placeholder: String::new(),
 
             overflow_left: 0,
             overflow_right: 0,
@@ -146,12 +150,13 @@ impl TextArea {
 
     pub fn render(&self) -> io::Result<()> {
         let visible_area_width = self.visible_area_width();
-        let rendered_content = if self.len() > visible_area_width {
-            &self.content[self.overflow_left..(self.len() - self.overflow_right)]
-        } else {
-            &self.content
+        let rendered_content = match self.len() {
+            i if i == 0 && !self.placeholder.is_empty() => self.placeholder.as_str().dim(),
+            i if i > visible_area_width => self.content[self.overflow_left..(self.len() - self.overflow_right)].stylize(),
+            i if i <= visible_area_width => self.content.as_str().stylize(),
+            _ => unreachable!()
         };
-        let remain_area_width = visible_area_width - rendered_content.len();
+        let remain_area_width = visible_area_width - rendered_content.content().len();
         let remain_space_str = " ".repeat(remain_area_width);
 
         let saved_cursor_pos = Cursor::pos_col()?;
@@ -192,14 +197,21 @@ impl TextArea {
         return Ok(());
     }
 
+    #[inline]
     pub fn push_str(&mut self, str: &str) {
         self.content.push_str(str);
         self.overflow_refresh();
     }
 
+    #[inline]
     pub fn set_content(&mut self, str: &str) {
         self.content = str.to_owned();
         self.overflow_refresh();
+    }
+
+    #[inline]
+    pub fn set_placeholder(&mut self, str: &str) {
+        self.placeholder = str.to_owned();
     }
 
     pub fn truncate(&mut self) -> io::Result<String> {
@@ -214,8 +226,7 @@ impl TextArea {
 
     #[inline]
     pub fn cursor_pos(&self) -> io::Result<usize> {
-        let cursor_pos_col = Cursor::pos_col()?;
-        let value = cursor_pos_col - self.margin_left + self.overflow_left;
+        let value = Cursor::pos_col()? + self.overflow_left - self.margin_left;
         return Ok(value);
     }
 

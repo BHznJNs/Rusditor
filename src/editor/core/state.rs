@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::EditorMode;
+
 #[derive(Clone, Copy)]
 pub enum EditorState {
     Saved,
@@ -7,6 +9,7 @@ pub enum EditorState {
 
     // states for components
     Saving,
+    Finding,
     Positioning,
 }
 
@@ -19,6 +22,17 @@ impl EditorState {
     }
 }
 
+impl From<EditorMode> for EditorState {
+    fn from(value: EditorMode) -> Self {
+        match value {
+            EditorMode::Saving => Self::Saving,
+            EditorMode::Positioning => Self::Positioning,
+            EditorMode::Finding => Self::Finding,
+            _ => unreachable!()
+        }
+    }
+}
+
 impl fmt::Display for EditorState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let str = match self {
@@ -26,6 +40,7 @@ impl fmt::Display for EditorState {
             Self::Modified => "Modified",
 
             Self::Saving => "Saving",
+            Self::Finding => "Finding",
             Self::Positioning => "Positioning",
         };
         write!(f, "{}", str)

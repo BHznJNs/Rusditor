@@ -4,4 +4,5 @@ pub enum EditorMode {
 
     Saving,
     Positioning,
+    Finding,
 }

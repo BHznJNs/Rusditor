@@ -16,7 +16,7 @@ pub struct ComponentController {
 
     // verticle position to show,
     // if less than zero, equal to
-    // Terminal::height() - position
+    // Terminal::height() - position - 1
     pub position: isize,
 
     pub editable: bool,
@@ -27,7 +27,7 @@ impl ComponentController {
         let render_pos = if self.position >= 0 {
             self.position as usize
         } else {
-            (Terminal::height() as isize + self.position) as usize
+            (Terminal::height() as isize + self.position - 1) as usize
         };
 
         Cursor::move_to_row(render_pos)?;

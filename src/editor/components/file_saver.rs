@@ -6,8 +6,6 @@ use std::{
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::editor::text_area::TextArea;
-
 use super::core::{Component, ComponentController};
 
 pub struct FileSaver {
@@ -19,19 +17,12 @@ impl FileSaver {
     const DEFAULT_FILE_NAME: &str = "temp.txt";
 
     pub fn new() -> Self {
-        let mut text_area = TextArea::new(Self::PROMPT.len(), Self::BUTTON.len());
-        text_area.set_content(Self::DEFAULT_FILE_NAME);
-
-        Self {
+        let mut controller = Self::init_controller();
+        controller.text_area.set_content(Self::DEFAULT_FILE_NAME);
+        return Self {
             editor_content: String::new(),
-            comp: ComponentController {
-                prompt: Self::PROMPT,
-                button: Self::BUTTON,
-                text_area,
-                position: 1,
-                editable: true,
-            },
-        }
+            comp: controller,
+        };
     }
 
     fn save(&self) -> io::Result<()> {
@@ -65,6 +56,8 @@ impl FileSaver {
 impl Component for FileSaver {
     const PROMPT: &'static str = "Path: ";
     const BUTTON: &'static str = "[Enter]";
+    const POSITION: isize = 1;
+    const EDITABLE: bool = true;
 
     #[inline]
     fn open(&mut self) -> io::Result<()> {

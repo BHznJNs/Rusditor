@@ -2,7 +2,7 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::editor::{cursor_pos::EditorCursorPos, text_area::TextArea};
+use crate::editor::cursor_pos::EditorCursorPos;
 
 use super::{core::ComponentController, Component};
 
@@ -12,30 +12,20 @@ pub struct Positioner {
 }
 
 impl Positioner {
-    const PROMPT: &'static str = "Target: ";
-    const BUTTON: &'static str = "[Enter]";
-
     pub fn new() -> Self {
         let initial_cursor_pos = EditorCursorPos { row: 1, col: 1 };
-        let mut text_area = TextArea::new(Self::PROMPT.len(), Self::BUTTON.len());
-        text_area.set_content(&initial_cursor_pos.short_display());
-
-        Self {
+        let mut controller = Self::init_controller();
+        controller.text_area.set_placeholder(&initial_cursor_pos.short_display());
+        return Self {
             target: initial_cursor_pos,
-            comp: ComponentController {
-                prompt: Self::PROMPT,
-                button: Self::BUTTON,
-                text_area,
-                position: -2,
-                editable: true,
-            },
-        }
+            comp: controller,
+        };
     }
 
     #[inline]
     pub fn set_cursor_pos(&mut self, pos: EditorCursorPos) {
         let pos_str = pos.short_display();
-        self.comp.text_area.set_content(&pos_str);
+        self.comp.text_area.set_placeholder(&pos_str);
         self.target = pos;
     }
 
@@ -53,12 +43,12 @@ impl Positioner {
 impl Component for Positioner {
     const PROMPT: &'static str = "Target: ";
     const BUTTON: &'static str = "[Enter]";
+    const POSITION: isize = -1;
+    const EDITABLE: bool = true;
 
     #[inline]
     fn open(&mut self) -> io::Result<()> {
-        self.comp.open()?;
-        self.comp.text_area.move_cursor_to_start()?;
-        return Ok(());
+        self.comp.open()
     }
 
     fn key_resolve(&mut self, key: KeyCode) -> io::Result<()> {

@@ -22,7 +22,7 @@ use dashboard::EditorDashboard;
 use init::EditorInit;
 use line::EditorLine;
 
-use super::direction::Direction;
+use super::{components::Finder, direction::Direction};
 use super::{
     components::{Component, EditorComponentManager, FileSaver, Positioner},
     cursor_pos::EditorCursorPos,
@@ -315,10 +315,56 @@ impl Editor {
         return Ok(());
     }
 
+    fn search(&self, target: &str) -> Option<Vec<EditorCursorPos>> {
+        let mut result_pos_list = Vec::<EditorCursorPos>::new();
+
+        for (i, l) in self.lines.iter().enumerate() {
+            match l.content().find(target) {
+                Some(pos) => result_pos_list.push(EditorCursorPos {
+                    row: i + 1,
+                    col: pos + 1,
+                }),
+                None => {}
+            }
+        }
+
+        if result_pos_list.is_empty() {
+            return None;
+        } else {
+            return Some(result_pos_list);
+        }
+    }
+
     fn callbacks_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
         match self.mode {
             EditorMode::Saving if FileSaver::is_save_callback_key(key) => {
                 self.dashboard.set_state(EditorState::Saved)?;
+            }
+
+            EditorMode::Finding => {
+                let option_target_pos = if Finder::is_finding_key(key) {
+                    if self.components.finder.is_empty() {
+                        let target_content = self.components.finder.content();
+                        if let Some(pos_list) = self.search(target_content) {
+                            self.components.finder.set_matches(pos_list);
+                        }
+                    }
+                    self.components.finder.next()
+                } else if Finder::is_reverse_finding_key(key) {
+                    self.components.finder.previous()
+                } else {
+                    None
+                };
+
+                if let Some(pos) = option_target_pos {
+                    let pos = pos.clone();
+
+                    Cursor::restore_pos()?;
+                    log(format!("target: {:?}", pos))?;
+                    self.jump_to_target_pos(pos)?;
+                    Cursor::save_pos()?;
+                    self.components.finder.open()?;
+                }
             }
             EditorMode::Positioning if Positioner::is_positioning_key(key) => {
                 self.toggle_mode(EditorMode::Positioning)?;
@@ -438,6 +484,7 @@ impl Editor {
             EditorMode::Normal => {
                 Cursor::save_pos()?;
                 self.mode = mode;
+                self.dashboard.set_state(EditorState::from(mode))?;
 
                 match self.mode {
                     EditorMode::Saving => {
@@ -445,14 +492,17 @@ impl Editor {
                         let file_saver = &mut self.components.file_saver;
                         file_saver.set_content(current_content);
                         file_saver.open()?;
-                        self.dashboard.set_state(EditorState::Saving)?;
+                    }
+                    EditorMode::Finding => {
+                        let finder = &mut self.components.finder;
+                        finder.open()?;
+                        finder.clear();
                     }
                     EditorMode::Positioning => {
                         let current_cursor_pos = self.cursor_pos()?;
                         let positioner = &mut self.components.positioner;
                         positioner.set_cursor_pos(current_cursor_pos);
                         positioner.open()?;
-                        self.dashboard.set_state(EditorState::Positioning)?;
                     }
                     _ => unreachable!(),
                 }
@@ -494,6 +544,7 @@ impl Editor {
 
                 match ch {
                     's' => self.toggle_mode(EditorMode::Saving)?,
+                    'f' => self.toggle_mode(EditorMode::Finding)?,
                     'g' => self.toggle_mode(EditorMode::Positioning)?,
                     _ => {}
                 }
