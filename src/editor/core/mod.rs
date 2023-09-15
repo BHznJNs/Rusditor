@@ -261,9 +261,7 @@ impl Editor {
 
         let current_line = &mut self.lines[self.current_row - 1];
         if current_line.is_at_line_start()? {
-            self.append_event(EditorOperation::DeleteLine, |e| {
-                e.delete_line()
-            })?;
+            self.append_event(EditorOperation::DeleteLine, |e| e.delete_line())?;
         } else {
             let delete_pos = current_line.cursor_pos()? - 1;
             let delete_ch = current_line.content().chars().nth(delete_pos);
@@ -660,9 +658,7 @@ impl Editor {
                     match key.code {
                         KeyCode::Backspace => self.delete()?,
                         KeyCode::Enter => {
-                            self.append_event(EditorOperation::InsertLine, |e| {
-                                e.insert_line()
-                            })?;
+                            self.append_event(EditorOperation::InsertLine, |e| e.insert_line())?;
                         }
                         KeyCode::Char(ch) => {
                             if !ch.is_ascii() {

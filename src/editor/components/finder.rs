@@ -2,12 +2,9 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{
-    editor::cursor_pos::EditorCursorPos,
-    utils::LoopTraverser,
-};
+use crate::{editor::cursor_pos::EditorCursorPos, utils::LoopTraverser};
 
-use super::{core::ComponentController, Component, history::ComponentHistory};
+use super::{core::ComponentController, history::ComponentHistory, Component};
 
 pub struct Finder {
     match_list: LoopTraverser<EditorCursorPos>,
