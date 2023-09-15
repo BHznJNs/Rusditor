@@ -51,10 +51,10 @@ impl Cursor {
         execute!(io::stdout(), cursor::RestorePosition)
     }
 
-    pub fn hide() -> io::Result<()> {
-        execute!(io::stdout(), cursor::Hide)
-    }
-    pub fn show() -> io::Result<()> {
-        execute!(io::stdout(), cursor::Show)
-    }
+    // pub fn hide() -> io::Result<()> {
+    //     execute!(io::stdout(), cursor::Hide)
+    // }
+    // pub fn show() -> io::Result<()> {
+    //     execute!(io::stdout(), cursor::Show)
+    // }
 }

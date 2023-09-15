@@ -1,15 +1,17 @@
+use std::collections::VecDeque;
+
 pub struct LoopTraverser<T> {
-    vec: Vec<T>,
-    index: isize,
-    cycle: bool,
+    vec: VecDeque<T>,
+    pub index: isize,
+    pub cycle: bool,
 }
 
 impl<T> LoopTraverser<T> {
-    pub fn new(cycle: bool) -> Self {
+    pub fn new(is_cycle: bool) -> Self {
         Self {
-            vec: Vec::<T>::new(),
+            vec: VecDeque::<T>::new(),
             index: -1,
-            cycle,
+            cycle: is_cycle,
         }
     }
     #[inline]
@@ -38,10 +40,26 @@ impl<T> LoopTraverser<T> {
         return Some(self.current());
     }
 
+    // --- --- --- --- --- ---
+
     #[inline]
-    pub fn push(&mut self, element: T) {
-        self.vec.push(element);
+    pub fn push_back(&mut self, element: T) {
+        self.vec.push_back(element);
     }
+    // #[inline]
+    // pub fn push_front(&mut self, element: T) {
+    //     self.vec.push_front(element);
+    // }
+    // #[inline]
+    // pub fn pop_back(&mut self) -> Option<T> {
+    //     self.vec.pop_back()
+    // }
+    // #[inline]
+    // pub fn pop_front(&mut self) -> Option<T> {
+    //     self.vec.pop_front()
+    // }
+
+    // --- --- --- --- --- ---
 
     #[inline]
     pub fn reset_index(&mut self) {
@@ -50,7 +68,7 @@ impl<T> LoopTraverser<T> {
 
     #[inline]
     pub fn set_content(&mut self, new_vec: Vec<T>) {
-        self.vec = new_vec;
+        self.vec = VecDeque::from(new_vec);
         self.reset_index();
     }
 
@@ -64,6 +82,11 @@ impl<T> LoopTraverser<T> {
     pub fn is_empty(&self) -> bool {
         self.vec.is_empty()
     }
+
+    // #[inline]
+    // pub fn len(&self) -> usize {
+    //     self.vec.len()
+    // }
 }
 
 #[test]

@@ -15,4 +15,6 @@ A simple text editor runs on terminals.
 | Ctrl + f | Open / Close finder component |
 | Enter (When finder opened) | Jump to next matches target |
 | Shift + Enter (When finder opened) | Jump to previous matches target |
+| Ctrl + z | Undo |
+| Ctrl + y | Redo |
 | Esc | Restore to normal mode (not in normal mode) / Exit program (in normal mode) |

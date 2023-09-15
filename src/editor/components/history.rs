@@ -1,10 +1,10 @@
 use crate::utils::LoopTraverser;
 
-pub struct History {
+pub struct ComponentHistory {
     list: LoopTraverser<String>,
 }
 
-impl History {
+impl ComponentHistory {
     pub fn new() -> Self {
         Self {
             list: LoopTraverser::new(true),
@@ -22,7 +22,7 @@ impl History {
 
     #[inline]
     pub fn append(&mut self, element: String) {
-        self.list.push(element);
+        self.list.push_back(element);
     }
     #[inline]
     pub fn reset_index(&mut self) {

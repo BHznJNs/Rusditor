@@ -1,4 +1,6 @@
 mod dashboard;
+mod event;
+mod history;
 mod init;
 mod line;
 mod mode;
@@ -13,7 +15,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::utils::{log, number_bit_count, Cursor, Terminal};
+use crate::utils::{number_bit_count, Cursor, Terminal};
 
 pub use mode::EditorMode;
 pub use state::EditorState;
@@ -21,6 +23,11 @@ pub use state::EditorState;
 use dashboard::EditorDashboard;
 use init::EditorInit;
 use line::EditorLine;
+
+use self::{
+    event::{EditorEvent, EditorOperation},
+    history::EditorHistory,
+};
 
 use super::{components::Finder, direction::Direction};
 use super::{
@@ -37,6 +44,7 @@ pub struct Editor {
 
     mode: EditorMode,
     components: EditorComponentManager,
+    history: EditorHistory,
     dashboard: EditorDashboard,
 }
 
@@ -253,9 +261,79 @@ impl Editor {
 
         let current_line = &mut self.lines[self.current_row - 1];
         if current_line.is_at_line_start()? {
-            self.delete_line()?;
+            self.append_event(EditorOperation::DeleteLine, |e| {
+                e.delete_line()
+            })?;
         } else {
+            let delete_pos = current_line.cursor_pos()? - 1;
+            let delete_ch = current_line.content().chars().nth(delete_pos);
+            let pos_before = EditorCursorPos {
+                row: self.current_row,
+                col: delete_pos + 1,
+            };
+
             current_line.delete_char()?;
+            let pos_after = self.cursor_pos()?;
+
+            let Some(ch) = delete_ch else { unreachable!() };
+            self.history.append(EditorEvent {
+                op: EditorOperation::DeleteChar(ch),
+                pos_before,
+                pos_after,
+            })
+        }
+        return Ok(());
+    }
+
+    // --- --- --- --- --- ---
+
+    fn exec_operation(&mut self, op: EditorOperation) -> io::Result<()> {
+        match op {
+            EditorOperation::InsertChar(ch) => self.insert_char(ch)?,
+            EditorOperation::DeleteChar(_) => {
+                let current_line = &mut self.lines[self.current_row - 1];
+                current_line.delete_char()?;
+            }
+            EditorOperation::InsertLine => self.insert_line()?,
+            EditorOperation::DeleteLine => self.delete_line()?,
+        }
+        return Ok(());
+    }
+
+    fn append_event(
+        &mut self,
+        op: EditorOperation,
+        operation_callback: impl Fn(&mut Editor) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let pos_before = self.cursor_pos()?;
+        operation_callback(self)?;
+        let pos_after = self.cursor_pos()?;
+
+        self.history.append(EditorEvent {
+            op,
+            pos_before,
+            pos_after,
+        });
+        return Ok(());
+    }
+
+    fn undo(&mut self) -> io::Result<()> {
+        if let Some(ev) = self.history.undo() {
+            let target_pos = ev.pos_after.clone();
+            let target_op = ev.op.rev();
+
+            self.jump_to(target_pos)?;
+            self.exec_operation(target_op)?;
+        }
+        return Ok(());
+    }
+    fn redo(&mut self) -> io::Result<()> {
+        if let Some(ev) = self.history.redo() {
+            let target_pos = ev.pos_before.clone();
+            let target_op = ev.op.clone();
+
+            self.jump_to(target_pos)?;
+            self.exec_operation(target_op)?;
         }
         return Ok(());
     }
@@ -282,7 +360,7 @@ impl Editor {
         return !is_row_overflow || !is_col_overflow;
     }
 
-    fn jump_to_target_pos(&mut self, target_pos: EditorCursorPos) -> io::Result<()> {
+    fn jump_to(&mut self, target_pos: EditorCursorPos) -> io::Result<()> {
         // move to target row
         let target_row = target_pos.row;
         let (dir, diff) = if target_row > self.current_row {
@@ -328,10 +406,10 @@ impl Editor {
             }
         }
 
-        if result_pos_list.is_empty() {
-            return None;
-        } else {
+        if !result_pos_list.is_empty() {
             return Some(result_pos_list);
+        } else {
+            return None;
         }
     }
 
@@ -360,8 +438,7 @@ impl Editor {
                     let pos = pos.clone();
 
                     Cursor::restore_pos()?;
-                    log(format!("target: {:?}", pos))?;
-                    self.jump_to_target_pos(pos)?;
+                    self.jump_to(pos)?;
                     Cursor::save_pos()?;
                     self.components.finder.open()?;
                 }
@@ -371,7 +448,7 @@ impl Editor {
 
                 let target_pos = self.components.positioner.get_target();
                 if self.check_cursor_pos(target_pos.clone()) {
-                    self.jump_to_target_pos(target_pos.clone())?;
+                    self.jump_to(target_pos.clone())?;
                     self.dashboard.set_cursor_pos(target_pos)?;
                 }
             }
@@ -393,6 +470,7 @@ impl Editor {
 
             mode: EditorMode::Normal,
             components: EditorComponentManager::new(),
+            history: EditorHistory::new(),
             dashboard: EditorDashboard::new(),
         }
     }
@@ -543,6 +621,9 @@ impl Editor {
                 };
 
                 match ch {
+                    'z' => self.undo()?,
+                    'y' => self.redo()?,
+
                     's' => self.toggle_mode(EditorMode::Saving)?,
                     'f' => self.toggle_mode(EditorMode::Finding)?,
                     'g' => self.toggle_mode(EditorMode::Positioning)?,
@@ -578,13 +659,19 @@ impl Editor {
                     self.dashboard.set_state(EditorState::Modified)?;
                     match key.code {
                         KeyCode::Backspace => self.delete()?,
-                        KeyCode::Enter => self.insert_line()?,
+                        KeyCode::Enter => {
+                            self.append_event(EditorOperation::InsertLine, |e| {
+                                e.insert_line()
+                            })?;
+                        }
                         KeyCode::Char(ch) => {
                             if !ch.is_ascii() {
                                 // avoid Non-ASCII characters
                                 continue;
                             }
-                            self.insert_char(ch)?;
+                            self.append_event(EditorOperation::InsertChar(ch), |e| {
+                                e.insert_char(ch)
+                            })?;
                         }
                         _ => unreachable!(),
                     }

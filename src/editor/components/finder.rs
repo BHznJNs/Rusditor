@@ -3,16 +3,16 @@ use std::io;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
-    editor::{cursor_pos::EditorCursorPos, history::History},
+    editor::cursor_pos::EditorCursorPos,
     utils::LoopTraverser,
 };
 
-use super::{core::ComponentController, Component};
+use super::{core::ComponentController, Component, history::ComponentHistory};
 
 pub struct Finder {
     match_list: LoopTraverser<EditorCursorPos>,
 
-    history: History,
+    history: ComponentHistory,
     comp: ComponentController,
 }
 
@@ -21,7 +21,7 @@ impl Finder {
         Self {
             match_list: LoopTraverser::new(true),
 
-            history: History::new(),
+            history: ComponentHistory::new(),
             comp: Self::init_controller(),
         }
     }
