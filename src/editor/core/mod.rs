@@ -3,7 +3,6 @@ mod event;
 mod history;
 mod init;
 mod line;
-mod mode;
 mod state;
 
 use std::{fs, io};
@@ -15,14 +14,12 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::utils::{number_bit_count, Cursor, Terminal};
-
-pub use mode::EditorMode;
-pub use state::EditorState;
+use crate::utils::{log, number_bit_count, Cursor, Terminal};
 
 use dashboard::EditorDashboard;
 use init::EditorInit;
 use line::EditorLine;
+pub use state::EditorState;
 
 use self::{
     event::{EditorEvent, EditorOperation},
@@ -42,7 +39,6 @@ pub struct Editor {
     overflow_top: usize,
     overflow_bottom: usize,
 
-    mode: EditorMode,
     components: EditorComponentManager,
     history: EditorHistory,
     dashboard: EditorDashboard,
@@ -283,6 +279,21 @@ impl Editor {
         return Ok(());
     }
 
+    fn replace(&mut self, pos: EditorCursorPos, count: usize, to: &str) -> io::Result<()> {
+        self.jump_to(pos)?;
+
+        let current_line = &mut self.lines[self.current_row - 1];
+        for _ in 0..count {
+            current_line.move_cursor_horizontal(Direction::Right)?;
+            current_line.delete_char()?;
+        }
+
+        for ch in to.chars() {
+            self.insert_char(ch)?;
+        }
+        return Ok(());
+    }
+
     // --- --- --- --- --- ---
 
     fn exec_operation(&mut self, op: EditorOperation) -> io::Result<()> {
@@ -353,7 +364,7 @@ impl Editor {
             true
         } else {
             let target_line = &self.lines[row - 1];
-            col > target_line.len() + 1
+            col == 0 || col > target_line.len() + 1
         };
         return !is_row_overflow || !is_col_overflow;
     }
@@ -368,6 +379,11 @@ impl Editor {
         };
         for _ in 0..diff {
             self.move_cursor_vertical(dir)?;
+        }
+        // is not first and last line
+        if self.current_row != 1 && self.current_row != self.lines.len() {
+            self.move_cursor_vertical(dir)?;
+            self.move_cursor_vertical(dir.rev())?;
         }
 
         // move to target col
@@ -384,6 +400,26 @@ impl Editor {
 
 // callback resolver methods
 impl Editor {
+    // operate editor when using component.
+    fn component_exec(
+        &mut self,
+        component_callback: impl Fn(&mut Editor) -> io::Result<()>,
+    ) -> io::Result<()> {
+        Cursor::restore_pos()?;
+        component_callback(self)?;
+        Cursor::save_pos()?;
+
+        // reopen current component
+        match self.dashboard.state() {
+            EditorState::Saving => self.components.file_saver.open()?,
+            EditorState::Positioning => self.components.positioner.open()?,
+            EditorState::Finding => self.components.finder.open()?,
+            EditorState::Replacing => self.components.replacer.open()?,
+            _ => unreachable!(),
+        }
+        return Ok(());
+    }
+
     #[inline]
     fn dashboard_cursor_pos_refresh(&mut self) -> io::Result<()> {
         let current_cursor_pos = self.cursor_pos()?;
@@ -391,37 +427,25 @@ impl Editor {
         return Ok(());
     }
 
-    fn search(&self, target: &str) -> Option<Vec<EditorCursorPos>> {
-        let mut result_pos_list = Vec::<EditorCursorPos>::new();
-
-        for (i, l) in self.lines.iter().enumerate() {
-            match l.content().find(target) {
-                Some(pos) => result_pos_list.push(EditorCursorPos {
-                    row: i + 1,
-                    col: pos + 1,
-                }),
-                None => {}
-            }
-        }
-
-        if !result_pos_list.is_empty() {
-            return Some(result_pos_list);
-        } else {
-            return None;
-        }
-    }
-
     fn callbacks_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
-        match self.mode {
-            EditorMode::Saving if FileSaver::is_save_callback_key(key) => {
+        match self.dashboard.state() {
+            EditorState::Saving if FileSaver::is_save_callback_key(key) => {
                 self.dashboard.set_state(EditorState::Saved)?;
             }
+            EditorState::Positioning if Positioner::is_positioning_key(key) => {
+                self.toggle_state(EditorState::Positioning)?;
 
-            EditorMode::Finding => {
+                let target_pos = self.components.positioner.get_target();
+                if self.check_cursor_pos(target_pos.clone()) {
+                    self.jump_to(target_pos.clone())?;
+                    self.dashboard.set_cursor_pos(target_pos)?;
+                }
+            }
+            EditorState::Finding => {
                 let option_target_pos = if Finder::is_finding_key(key) {
                     if self.components.finder.is_empty() {
-                        let target_content = self.components.finder.content();
-                        if let Some(pos_list) = self.search(target_content) {
+                        let target_text = self.components.finder.content();
+                        if let Some(pos_list) = self.search(target_text) {
                             self.components.finder.set_matches(pos_list);
                         }
                     }
@@ -434,20 +458,46 @@ impl Editor {
 
                 if let Some(pos) = option_target_pos {
                     let pos = pos.clone();
-
-                    Cursor::restore_pos()?;
-                    self.jump_to(pos)?;
-                    Cursor::save_pos()?;
-                    self.components.finder.open()?;
+                    self.component_exec(|e| e.jump_to(pos))?;
                 }
             }
-            EditorMode::Positioning if Positioner::is_positioning_key(key) => {
-                self.toggle_mode(EditorMode::Positioning)?;
+            EditorState::Replacing => {
+                if self.components.replacer.is_search_key(key) {
+                    let target_content = self.components.replacer.search_text();
+                    if let Some(pos_list) = self.search(target_content) {
+                        self.components.replacer.search_handler(pos_list)?;
+                    }
+                } else if self.components.replacer.is_next_key(key) {
+                    // jump to next position
+                    let next_pos = self.components.replacer.next();
+                    if let Some(pos) = next_pos {
+                        let pos = pos.clone();
+                        self.component_exec(|e| e.jump_to(pos))?;
+                    }
+                } else if self.components.replacer.is_replace_one_key(key) {
+                    self.component_exec(|e| {
+                        let replacer = &mut e.components.replacer;
+                        let next_pos = replacer.next().cloned();
 
-                let target_pos = self.components.positioner.get_target();
-                if self.check_cursor_pos(target_pos.clone()) {
-                    self.jump_to(target_pos.clone())?;
-                    self.dashboard.set_cursor_pos(target_pos)?;
+                        if let Some(pos) = next_pos {
+                            let replace_count = replacer.search_text().len();
+                            let replace_text = &replacer.replace_text().to_owned();
+                            e.replace(pos, replace_count, replace_text)?;
+                        }
+                        return Ok(());
+                    })?;
+                } else if self.components.replacer.is_replace_all_key(key) {
+                    // close replacer
+                    self.toggle_state(EditorState::Replacing)?;
+
+                    let replacer = &mut self.components.replacer;
+                    let replace_count = replacer.search_text().len();
+                    let replace_text = &replacer.replace_text().to_owned();
+
+                    while let Some(pos) = self.components.replacer.next().cloned() {
+                        log(format!("{:#?}", pos))?;
+                        self.replace(pos, replace_count, replace_text)?;
+                    }
                 }
             }
             _ => {}
@@ -466,7 +516,7 @@ impl Editor {
             overflow_top: 0,
             overflow_bottom: 0,
 
-            mode: EditorMode::Normal,
+            // mode: EditorMode::Normal,
             components: EditorComponentManager::new(),
             history: EditorHistory::new(),
             dashboard: EditorDashboard::new(),
@@ -497,6 +547,12 @@ impl Editor {
             .move_cursor_to_start(label_width)?;
 
         self.render_all()?;
+        return Ok(());
+    }
+
+    pub fn close(&self) -> io::Result<()> {
+        disable_raw_mode()?;
+        execute!(io::stdout(), LeaveAlternateScreen)?;
         return Ok(());
     }
 
@@ -531,13 +587,25 @@ impl Editor {
         return Ok(());
     }
 
-    // --- --- --- --- --- ---
+    fn search(&self, target: &str) -> Option<Vec<EditorCursorPos>> {
+        let result_pos_list: Vec<EditorCursorPos> = self
+            .lines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, l)| match l.content().find(target) {
+                Some(pos) => Some(EditorCursorPos {
+                    row: i + 1,
+                    col: pos + 1,
+                }),
+                None => None,
+            })
+            .collect();
 
-    #[inline]
-    pub fn close(&self) -> io::Result<()> {
-        disable_raw_mode()?;
-        execute!(io::stdout(), LeaveAlternateScreen)?;
-        return Ok(());
+        if !result_pos_list.is_empty() {
+            return Some(result_pos_list);
+        } else {
+            return None;
+        }
     }
 
     fn content(&self) -> String {
@@ -554,37 +622,42 @@ impl Editor {
 
     // --- --- --- --- --- ---
 
-    fn toggle_mode(&mut self, mode: EditorMode) -> io::Result<()> {
-        match self.mode {
+    fn toggle_state(&mut self, new_state: EditorState) -> io::Result<()> {
+        match self.dashboard.state() {
             // set mode
-            EditorMode::Normal => {
+            EditorState::Saved | EditorState::Modified if !self.components.is_in_component => {
                 Cursor::save_pos()?;
-                self.mode = mode;
-                self.dashboard.set_state(EditorState::from(mode))?;
+                self.components.is_in_component = true;
+                self.dashboard.set_state(new_state)?;
 
-                match self.mode {
-                    EditorMode::Saving => {
+                match new_state {
+                    EditorState::Saving => {
                         let current_content = self.content();
                         let file_saver = &mut self.components.file_saver;
                         file_saver.set_content(current_content);
                         file_saver.open()?;
                     }
-                    EditorMode::Finding => {
-                        let finder = &mut self.components.finder;
-                        finder.open()?;
-                        finder.clear();
-                    }
-                    EditorMode::Positioning => {
+                    EditorState::Positioning => {
                         let current_cursor_pos = self.cursor_pos()?;
                         let positioner = &mut self.components.positioner;
                         positioner.set_cursor_pos(current_cursor_pos);
                         positioner.open()?;
                     }
+                    EditorState::Finding => {
+                        let finder = &mut self.components.finder;
+                        finder.clear();
+                        finder.open()?;
+                    }
+                    EditorState::Replacing => {
+                        let replacer = &mut self.components.replacer;
+                        replacer.reset();
+                        replacer.open()?;
+                    }
                     _ => unreachable!(),
                 }
             }
             // restore to normal mode
-            m if m == mode => {
+            s if s == new_state || self.components.is_in_component => {
                 // restore the covered line
                 let label_width = self.label_width();
                 let covered_pos = Cursor::pos_row()? + self.overflow_top - 1;
@@ -598,8 +671,8 @@ impl Editor {
                     }
                 }
                 Cursor::restore_pos()?;
-                self.mode = EditorMode::Normal;
                 self.dashboard.restore_state()?;
+                self.components.is_in_component = false;
             }
             _ => {}
         }
@@ -618,25 +691,32 @@ impl Editor {
                     continue;
                 };
 
-                match ch {
-                    'z' => self.undo()?,
-                    'y' => self.redo()?,
+                if !self.components.is_in_component {
+                    match ch {
+                        'z' => self.undo()?,
+                        'y' => self.redo()?,
 
-                    's' => self.toggle_mode(EditorMode::Saving)?,
-                    'f' => self.toggle_mode(EditorMode::Finding)?,
-                    'g' => self.toggle_mode(EditorMode::Positioning)?,
-                    _ => {}
-                }
-                continue;
-            }
+                        's' => self.toggle_state(EditorState::Saving)?,
+                        'g' => self.toggle_state(EditorState::Positioning)?,
+                        'f' => self.toggle_state(EditorState::Finding)?,
+                        'r' => self.toggle_state(EditorState::Replacing)?,
 
-            if self.mode != EditorMode::Normal {
-                if key.code == KeyCode::Esc {
-                    // use key `Esc` to restore to normal mode
-                    self.toggle_mode(self.mode)?;
+                        // ignore other Ctrl shotcuts
+                        _ => {}
+                    }
                     continue;
                 }
-                self.components.resolve(self.mode, key)?;
+            }
+
+            // if self.mode != EditorMode::Normal {
+            let current_state = self.dashboard.state();
+            if current_state.is_component_state() {
+                if key.code == KeyCode::Esc {
+                    // use key `Esc` to restore to normal mode
+                    self.toggle_state(current_state)?;
+                    continue;
+                }
+                self.components.resolve(current_state, key)?;
                 self.callbacks_resolve(key)?;
                 continue;
             }

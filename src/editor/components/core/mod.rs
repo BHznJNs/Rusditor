@@ -1,10 +1,12 @@
 mod controller;
+mod history;
 
-pub(super) use controller::ComponentController;
+pub use controller::ComponentController;
+pub use history::ComponentHistory;
 
 use std::io;
 
-use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
 
 use crate::editor::text_area::TextArea;
 
@@ -25,5 +27,5 @@ pub trait Component {
         }
     }
     fn open(&mut self) -> io::Result<()>;
-    fn key_resolve(&mut self, key: KeyCode) -> io::Result<()>;
+    fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()>;
 }

@@ -64,10 +64,10 @@ impl Component for FileSaver {
         self.comp.open()
     }
 
-    fn key_resolve(&mut self, key: KeyCode) -> io::Result<()> {
-        match key {
+    fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
+        match key.code {
             KeyCode::Enter => self.save()?,
-            k if ComponentController::is_editing_key(k) => self.comp.edit(key)?,
+            k if ComponentController::is_editing_key(k) => self.comp.edit(k)?,
             _ => {}
         }
         return Ok(());

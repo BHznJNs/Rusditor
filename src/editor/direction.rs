@@ -9,6 +9,17 @@ pub enum Direction {
     Right,
 }
 
+impl Direction {
+    pub fn rev(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+}
+
 impl From<KeyCode> for Direction {
     fn from(value: KeyCode) -> Self {
         match value {

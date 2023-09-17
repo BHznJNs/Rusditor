@@ -50,10 +50,17 @@ impl EditorDashboard {
         return Ok(());
     }
 
+    #[inline]
+    pub fn state(&self) -> EditorState {
+        self.state.clone()
+    }
+
     pub fn set_state(&mut self, new_state: EditorState) -> io::Result<()> {
         if new_state.is_component_state() {
             // cache current state
             self.saved_state = self.state;
+        } else {
+            self.saved_state = new_state;
         }
         self.state = new_state;
 

@@ -150,13 +150,21 @@ impl TextArea {
 
     pub fn render(&self) -> io::Result<()> {
         let visible_area_width = self.visible_area_width();
-        let rendered_content = match self.len() {
-            i if i == 0 && !self.placeholder.is_empty() => self.placeholder.as_str().dim(),
-            i if i > visible_area_width => {
-                self.content[self.overflow_left..(self.len() - self.overflow_right)].stylize()
+
+        let rendered_content = if self.len() == 0 && !self.placeholder.is_empty() {
+            if self.placeholder.len() > visible_area_width {
+                let rendered_range = 0..visible_area_width;
+                self.placeholder[rendered_range].dim()
+            } else {
+                self.placeholder.as_str().dim()
             }
-            i if i <= visible_area_width => self.content.as_str().stylize(),
-            _ => unreachable!(),
+        } else {
+            if self.len() > visible_area_width {
+                let rendered_range = self.overflow_left..(self.len() - self.overflow_right);
+                self.content[rendered_range].stylize()
+            } else {
+                self.content.as_str().stylize()
+            }
         };
         let remain_area_width = visible_area_width - rendered_content.content().len();
         let remain_space_str = " ".repeat(remain_area_width);
@@ -235,6 +243,12 @@ impl TextArea {
     #[inline]
     pub fn content<'a>(&'a self) -> &'a str {
         &self.content
+    }
+
+    pub fn clear(&mut self) {
+        self.overflow_left = 0;
+        self.overflow_right = 0;
+        self.content.clear();
     }
 
     #[inline]

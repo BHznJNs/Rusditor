@@ -4,7 +4,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{editor::cursor_pos::EditorCursorPos, utils::LoopTraverser};
 
-use super::{core::ComponentController, history::ComponentHistory, Component};
+use super::{
+    core::{ComponentController, ComponentHistory},
+    Component,
+};
 
 pub struct Finder {
     match_list: LoopTraverser<EditorCursorPos>,
@@ -23,6 +26,7 @@ impl Finder {
         }
     }
 
+    #[inline]
     pub fn set_matches(&mut self, pos_list: Vec<EditorCursorPos>) {
         self.match_list.set_content(pos_list);
     }
@@ -37,15 +41,6 @@ impl Finder {
     }
 
     #[inline]
-    pub fn is_finding_key(key: KeyEvent) -> bool {
-        key.modifiers == KeyModifiers::NONE && key.code == KeyCode::Enter
-    }
-    #[inline]
-    pub fn is_reverse_finding_key(key: KeyEvent) -> bool {
-        key.modifiers == KeyModifiers::SHIFT && key.code == KeyCode::Enter
-    }
-
-    #[inline]
     pub fn content<'a>(&'a self) -> &'a str {
         self.comp.text_area.content()
     }
@@ -57,10 +52,22 @@ impl Finder {
     pub fn clear(&mut self) {
         self.match_list.clear()
     }
+
+    // --- --- --- --- --- ---
+
+    #[inline]
+    pub fn is_finding_key(key: KeyEvent) -> bool {
+        key.modifiers == KeyModifiers::NONE && key.code == KeyCode::Enter
+    }
+    #[inline]
+    pub fn is_reverse_finding_key(key: KeyEvent) -> bool {
+        key.modifiers == KeyModifiers::SHIFT && key.code == KeyCode::Enter
+    }
+
 }
 
 impl Component for Finder {
-    const PROMPT: &'static str = "Search: ";
+    const PROMPT: &'static str = "Find: ";
     const BUTTON: &'static str = "[(Shift) Enter]";
     const POSITION: isize = -1;
     const EDITABLE: bool = true;
@@ -69,10 +76,10 @@ impl Component for Finder {
         self.comp.open()
     }
 
-    fn key_resolve(&mut self, key: KeyCode) -> io::Result<()> {
-        match key {
+    fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
+        match key.code {
             KeyCode::Up | KeyCode::Down => {
-                let history_content = match key {
+                let history_content = match key.code {
                     KeyCode::Up => self.history.previous(),
                     KeyCode::Down => self.history.next(),
                     _ => unreachable!(),
@@ -90,7 +97,7 @@ impl Component for Finder {
             }
             k if ComponentController::is_editing_key(k) => {
                 self.history.reset_index();
-                self.comp.edit(key)?;
+                self.comp.edit(k)?;
             }
             _ => {}
         }
