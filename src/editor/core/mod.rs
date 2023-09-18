@@ -657,7 +657,7 @@ impl Editor {
                 }
             }
             // restore to normal mode
-            s if s == new_state || self.components.is_in_component => {
+            s if s == new_state && self.components.is_in_component => {
                 // restore the covered line
                 let label_width = self.label_width();
                 let covered_pos = Cursor::pos_row()? + self.overflow_top - 1;
@@ -691,7 +691,7 @@ impl Editor {
                     continue;
                 };
 
-                if !self.components.is_in_component {
+                // if !self.components.is_in_component {
                     match ch {
                         'z' => self.undo()?,
                         'y' => self.redo()?,
@@ -705,7 +705,7 @@ impl Editor {
                         _ => {}
                     }
                     continue;
-                }
+                // }
             }
 
             // if self.mode != EditorMode::Normal {
