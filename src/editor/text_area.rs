@@ -190,13 +190,13 @@ impl TextArea {
         return Ok(());
     }
 
-    pub fn delete_char(&mut self) -> io::Result<()> {
+    pub fn delete_char(&mut self) -> io::Result<Option<char>> {
         if self.state_left()?.is_at_area_start {
-            return Ok(());
+            return Ok(None);
         }
 
         let remove_pos = self.cursor_pos()? - 1;
-        self.content.remove(remove_pos);
+        let removed_ch = self.content.remove(remove_pos);
 
         if self.content.len() >= self.visible_area_width() {
             self.overflow_left -= 1;
@@ -204,7 +204,7 @@ impl TextArea {
             Cursor::left(1)?;
         }
         self.render()?;
-        return Ok(());
+        return Ok(Some(removed_ch));
     }
 
     #[inline]

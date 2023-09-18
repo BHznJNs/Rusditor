@@ -44,7 +44,7 @@ impl EditorLine {
         self.text_area.insert_char(ch)
     }
     #[inline]
-    pub fn delete_char(&mut self) -> io::Result<()> {
+    pub fn delete_char(&mut self) -> io::Result<Option<char>> {
         self.text_area.delete_char()
     }
 }

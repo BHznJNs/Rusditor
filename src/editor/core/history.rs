@@ -3,12 +3,12 @@ use std::collections::VecDeque;
 use super::event::EditorEvent;
 
 pub struct EditorHistory {
-    ops: VecDeque<EditorEvent>,
+    events: VecDeque<EditorEvent>,
 
-    // operations that is undone
-    undo_ops: Vec<EditorEvent>,
-    // operations that is redone
-    redo_ops: Vec<EditorEvent>,
+    // events that is undone
+    undo_events: Vec<EditorEvent>,
+    // events that is redone
+    redo_events: Vec<EditorEvent>,
 }
 
 impl EditorHistory {
@@ -16,45 +16,45 @@ impl EditorHistory {
 
     pub fn new() -> Self {
         Self {
-            ops: VecDeque::<EditorEvent>::new(),
-            undo_ops: Vec::<EditorEvent>::new(),
-            redo_ops: Vec::<EditorEvent>::new(),
+            events: VecDeque::<EditorEvent>::new(),
+            undo_events: Vec::<EditorEvent>::new(),
+            redo_events: Vec::<EditorEvent>::new(),
         }
     }
 
     pub fn undo<'a>(&'a mut self) -> Option<&'a EditorEvent> {
-        let option_op = if self.ops.is_empty() {
-            self.redo_ops.pop()
+        let option_op = if self.events.is_empty() {
+            self.redo_events.pop()
         } else {
-            self.ops.pop_back()
+            self.events.pop_back()
         };
 
         match option_op {
             Some(op) => {
-                self.undo_ops.push(op);
-                self.undo_ops.last()
+                self.undo_events.push(op);
+                self.undo_events.last()
             }
             None => None,
         }
     }
 
     pub fn redo<'a>(&'a mut self) -> Option<&'a EditorEvent> {
-        match self.undo_ops.pop() {
+        match self.undo_events.pop() {
             Some(op) => {
-                self.redo_ops.push(op);
-                self.redo_ops.last()
+                self.redo_events.push(op);
+                self.redo_events.last()
             }
             None => None,
         }
     }
 
     pub fn append(&mut self, ev: EditorEvent) {
-        self.undo_ops.clear();
-        self.redo_ops.clear();
-        self.ops.push_back(ev);
+        self.undo_events.clear();
+        self.redo_events.clear();
+        self.events.push_back(ev);
 
-        if self.ops.len() > Self::MAX_CACHED_EVENT {
-            self.ops.pop_front();
+        if self.events.len() > Self::MAX_CACHED_EVENT {
+            self.events.pop_front();
         }
     }
 }

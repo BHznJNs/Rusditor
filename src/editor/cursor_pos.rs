@@ -4,7 +4,7 @@ use crate::utils::Cursor;
 
 // use to indicate virtual cursor position
 // in editing area.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct EditorCursorPos {
     pub row: usize,
     pub col: usize,

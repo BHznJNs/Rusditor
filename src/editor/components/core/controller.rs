@@ -57,7 +57,10 @@ impl ComponentController {
 
         let text_area = &mut self.text_area;
         match key {
-            KeyCode::Backspace => text_area.delete_char()?,
+            KeyCode::Backspace => {
+                text_area.delete_char()?;
+            }
+
             KeyCode::Left => text_area.move_cursor_horizontal(Direction::Left)?,
             KeyCode::Right => text_area.move_cursor_horizontal(Direction::Right)?,
             KeyCode::Char(ch) => text_area.insert_char(ch)?,

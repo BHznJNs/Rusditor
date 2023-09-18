@@ -14,6 +14,7 @@ impl<T> LoopTraverser<T> {
             cycle: is_cycle,
         }
     }
+
     #[inline]
     fn current<'a>(&'a self) -> &'a T {
         &self.vec[self.index as usize]
@@ -38,6 +39,11 @@ impl<T> LoopTraverser<T> {
             (self.index - 1) % (self.vec.len() as isize)
         };
         return Some(self.current());
+    }
+
+    #[inline]
+    pub fn first<'a>(&'a self) -> Option<&'a T> {
+        self.vec.front()
     }
 
     // --- --- --- --- --- ---

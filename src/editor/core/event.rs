@@ -1,11 +1,14 @@
 use crate::editor::cursor_pos::EditorCursorPos;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum EditorOperation {
     InsertChar(char),
     DeleteChar(char),
     InsertLine,
     DeleteLine,
+
+    //      from  , to
+    Replace(String, String),
 }
 
 impl EditorOperation {
@@ -15,13 +18,15 @@ impl EditorOperation {
             Self::DeleteChar(ch) => Self::InsertChar(*ch),
             Self::InsertLine => Self::DeleteLine,
             Self::DeleteLine => Self::InsertLine,
+
+            Self::Replace(from, to) => Self::Replace(to.clone(), from.clone()),
         }
     }
 }
 
 // --- --- --- --- --- ---
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EditorEvent {
     pub op: EditorOperation,
 

@@ -255,41 +255,35 @@ impl Editor {
             return Ok(());
         }
 
+        let pos_before = self.cursor_pos()?;
         let current_line = &mut self.lines[self.current_row - 1];
+
         if current_line.is_at_line_start()? {
             self.append_event(EditorOperation::DeleteLine, |e| e.delete_line())?;
         } else {
-            let delete_pos = current_line.cursor_pos()? - 1;
-            let delete_ch = current_line.content().chars().nth(delete_pos);
-            let pos_before = EditorCursorPos {
-                row: self.current_row,
-                col: delete_pos + 1,
-            };
-
-            current_line.delete_char()?;
+            let deleted_ch = current_line.delete_char()?;
             let pos_after = self.cursor_pos()?;
 
-            let Some(ch) = delete_ch else { unreachable!() };
+            let ch = deleted_ch.unwrap();
             self.history.append(EditorEvent {
                 op: EditorOperation::DeleteChar(ch),
                 pos_before,
                 pos_after,
-            })
+            });
         }
         return Ok(());
     }
 
-    fn replace(&mut self, pos: EditorCursorPos, count: usize, to: &str) -> io::Result<()> {
-        self.jump_to(pos)?;
-
+    fn replace(&mut self, count: usize, to: &str) -> io::Result<()> {
         let current_line = &mut self.lines[self.current_row - 1];
         for _ in 0..count {
             current_line.move_cursor_horizontal(Direction::Right)?;
             current_line.delete_char()?;
         }
 
-        for ch in to.chars() {
-            self.insert_char(ch)?;
+        for ch in to.chars().rev() {
+            current_line.insert_char(ch)?;
+            current_line.move_cursor_horizontal(Direction::Left)?;
         }
         return Ok(());
     }
@@ -305,6 +299,10 @@ impl Editor {
             }
             EditorOperation::InsertLine => self.insert_line()?,
             EditorOperation::DeleteLine => self.delete_line()?,
+
+            EditorOperation::Replace(from, to) => {
+                self.replace(from.len(), to.as_str())?;
+            }
         }
         return Ok(());
     }
@@ -317,6 +315,15 @@ impl Editor {
         let pos_before = self.cursor_pos()?;
         operation_callback(self)?;
         let pos_after = self.cursor_pos()?;
+
+        log(format!(
+            "event: {:#?}",
+            EditorEvent {
+                op: op.clone(),
+                pos_before,
+                pos_after,
+            }
+        ))?;
 
         self.history.append(EditorEvent {
             op,
@@ -370,6 +377,10 @@ impl Editor {
     }
 
     fn jump_to(&mut self, target_pos: EditorCursorPos) -> io::Result<()> {
+        if target_pos == self.cursor_pos()? {
+            return Ok(());
+        }
+
         // move to target row
         let target_row = target_pos.row;
         let (dir, diff) = if target_row > self.current_row {
@@ -465,7 +476,11 @@ impl Editor {
                 if self.components.replacer.is_search_key(key) {
                     let target_content = self.components.replacer.search_text();
                     if let Some(pos_list) = self.search(target_content) {
-                        self.components.replacer.search_handler(pos_list)?;
+                        let replacer = &mut self.components.replacer;
+                        replacer.search_handler(pos_list)?;
+
+                        let first_target_pos = replacer.first().unwrap().clone();
+                        self.component_exec(|e| e.jump_to(first_target_pos))?;
                     }
                 } else if self.components.replacer.is_next_key(key) {
                     // jump to next position
@@ -480,9 +495,17 @@ impl Editor {
                         let next_pos = replacer.next().cloned();
 
                         if let Some(pos) = next_pos {
+                            let replace_op = EditorOperation::Replace(
+                                replacer.search_text().to_owned(),
+                                replacer.replace_text().to_owned(),
+                            );
                             let replace_count = replacer.search_text().len();
                             let replace_text = &replacer.replace_text().to_owned();
-                            e.replace(pos, replace_count, replace_text)?;
+
+                            e.jump_to(pos)?;
+                            e.append_event(replace_op, |e| {
+                                e.replace(replace_count, replace_text)
+                            })?;
                         }
                         return Ok(());
                     })?;
@@ -493,10 +516,16 @@ impl Editor {
                     let replacer = &mut self.components.replacer;
                     let replace_count = replacer.search_text().len();
                     let replace_text = &replacer.replace_text().to_owned();
+                    let replace_op = EditorOperation::Replace(
+                        replacer.search_text().to_owned(),
+                        replacer.replace_text().to_owned(),
+                    );
 
                     while let Some(pos) = self.components.replacer.next().cloned() {
-                        log(format!("{:#?}", pos))?;
-                        self.replace(pos, replace_count, replace_text)?;
+                        self.jump_to(pos)?;
+                        self.append_event(replace_op.clone(), |e| {
+                            e.replace(replace_count, replace_text)
+                        })?;
                     }
                 }
             }
