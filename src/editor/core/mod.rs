@@ -691,26 +691,27 @@ impl Editor {
                     continue;
                 };
 
-                // if !self.components.is_in_component {
-                    match ch {
-                        'z' => self.undo()?,
-                        'y' => self.redo()?,
+                match ch {
+                    'z' => self.undo()?,
+                    'y' => self.redo()?,
 
-                        's' => self.toggle_state(EditorState::Saving)?,
-                        'g' => self.toggle_state(EditorState::Positioning)?,
-                        'f' => self.toggle_state(EditorState::Finding)?,
-                        'r' => self.toggle_state(EditorState::Replacing)?,
+                    's' => self.toggle_state(EditorState::Saving)?,
+                    'g' => self.toggle_state(EditorState::Positioning)?,
+                    'f' => self.toggle_state(EditorState::Finding)?,
+                    'r' => self.toggle_state(EditorState::Replacing)?,
 
-                        // ignore other Ctrl shotcuts
-                        _ => {}
-                    }
+                    // ignore other Ctrl shotcuts
+                    _ => {}
+                }
+
+                if !self.components.is_in_component {
                     continue;
-                // }
+                }
             }
 
-            // if self.mode != EditorMode::Normal {
-            let current_state = self.dashboard.state();
-            if current_state.is_component_state() {
+            if self.components.is_in_component {
+                let current_state = self.dashboard.state();
+
                 if key.code == KeyCode::Esc {
                     // use key `Esc` to restore to normal mode
                     self.toggle_state(current_state)?;

@@ -77,6 +77,10 @@ impl Component for Finder {
     }
 
     fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
+        if !(key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT) {
+            return Ok(());
+        }
+
         match key.code {
             KeyCode::Up | KeyCode::Down => {
                 let history_content = match key.code {

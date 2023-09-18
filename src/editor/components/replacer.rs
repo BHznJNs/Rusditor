@@ -106,6 +106,13 @@ impl Component for Replacer {
     const EDITABLE: bool = true;
     const POSITION: isize = -1;
 
+    fn open(&mut self) -> io::Result<()> {
+        match self.state {
+            ReplacerState::Searching => &mut self.searcher,
+            ReplacerState::Replacing => &mut self.replacer,
+        }
+        .open()
+    }
     fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
         match key.modifiers {
             KeyModifiers::NONE | KeyModifiers::SHIFT
@@ -120,12 +127,5 @@ impl Component for Replacer {
             _ => {}
         }
         return Ok(());
-    }
-    fn open(&mut self) -> io::Result<()> {
-        match self.state {
-            ReplacerState::Searching => &mut self.searcher,
-            ReplacerState::Replacing => &mut self.replacer,
-        }
-        .open()
     }
 }

@@ -54,6 +54,10 @@ impl Component for Positioner {
     }
 
     fn key_resolve(&mut self, key: KeyEvent) -> io::Result<()> {
+        if !(key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT) {
+            return Ok(());
+        }
+
         match key.code {
             KeyCode::Enter => {
                 let target_pos_str = self.comp.text_area.content();
