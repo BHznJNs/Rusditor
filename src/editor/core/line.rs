@@ -72,6 +72,23 @@ impl EditorLine {
         return Ok(());
     }
 
+    pub fn find_all(&self, pat: &str) -> Option<Vec<usize>> {
+        let mut text = self.content();
+        let mut pos_offset = 0;
+        let mut result_vec = vec![];
+        while let Some(pos) = text.find(pat) {
+            result_vec.push(pos + pos_offset);
+            pos_offset += pos + pat.len();
+            text = &text[(pos + pat.len())..];
+        }
+
+        if result_vec.is_empty() {
+            return None;
+        } else {
+            return Some(result_vec);
+        }
+    }
+
     #[inline]
     fn update_label_width(&mut self, new_width: usize) {
         self.text_area.margin_left = new_width;
@@ -101,4 +118,12 @@ impl EditorLine {
     pub fn len(&self) -> usize {
         self.text_area.len()
     }
+}
+
+#[test]
+fn editorline_find_all_test() {
+    let mut line = EditorLine::new(0);
+    line.push_str("abc  abc  abc");
+
+    assert_eq!(line.find_all("abc"), Some(vec![0, 5, 10]));
 }

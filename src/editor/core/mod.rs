@@ -608,18 +608,18 @@ impl Editor {
     }
 
     fn search(&self, target: &str) -> Option<Vec<EditorCursorPos>> {
-        let result_pos_list: Vec<EditorCursorPos> = self
-            .lines
-            .iter()
-            .enumerate()
-            .filter_map(|(i, l)| match l.content().find(target) {
-                Some(pos) => Some(EditorCursorPos {
-                    row: i + 1,
-                    col: pos + 1,
-                }),
-                None => None,
-            })
-            .collect();
+        let mut result_pos_list = Vec::<EditorCursorPos>::new();
+        for (index, line) in self.lines.iter().enumerate() {
+            match line.find_all(target) {
+                Some(pos_list) => for pos in pos_list {
+                    result_pos_list.push(EditorCursorPos {
+                        row: index + 1,
+                        col: pos + 1,
+                    })
+                }
+                None => {}
+            }
+        }
 
         if !result_pos_list.is_empty() {
             return Some(result_pos_list);
