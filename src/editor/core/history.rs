@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
 
+use crate::utils::log;
+
 use super::event::EditorEvent;
 
+#[derive(Debug)]
 pub struct EditorHistory {
     events: VecDeque<EditorEvent>,
 
@@ -23,7 +26,7 @@ impl EditorHistory {
     }
 
     pub fn undo<'a>(&'a mut self) -> Option<&'a EditorEvent> {
-        let option_op = if self.events.is_empty() {
+        let option_op = if !self.redo_events.is_empty() {
             self.redo_events.pop()
         } else {
             self.events.pop_back()

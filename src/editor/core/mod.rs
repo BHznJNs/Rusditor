@@ -14,7 +14,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::utils::{log, number_bit_count, Cursor, Terminal};
+use crate::utils::{number_bit_count, Cursor, Terminal};
 
 use dashboard::EditorDashboard;
 use init::EditorInit;
@@ -315,15 +315,6 @@ impl Editor {
         let pos_before = self.cursor_pos()?;
         operation_callback(self)?;
         let pos_after = self.cursor_pos()?;
-
-        log(format!(
-            "event: {:#?}",
-            EditorEvent {
-                op: op.clone(),
-                pos_before,
-                pos_after,
-            }
-        ))?;
 
         self.history.append(EditorEvent {
             op,
