@@ -1,7 +1,5 @@
 use std::collections::VecDeque;
 
-use crate::utils::log;
-
 use super::event::EditorEvent;
 
 #[derive(Debug)]
@@ -23,6 +21,12 @@ impl EditorHistory {
             undo_events: Vec::<EditorEvent>::new(),
             redo_events: Vec::<EditorEvent>::new(),
         }
+    }
+
+    #[inline]
+    // returns the last appended event
+    pub fn previous_event<'a>(&'a self) -> Option<&'a EditorEvent> {
+        self.events.back()
     }
 
     pub fn undo<'a>(&'a mut self) -> Option<&'a EditorEvent> {

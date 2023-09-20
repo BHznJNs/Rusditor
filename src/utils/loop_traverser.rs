@@ -15,11 +15,6 @@ impl<T> LoopTraverser<T> {
         }
     }
 
-    #[inline]
-    fn current<'a>(&'a self) -> &'a T {
-        &self.vec[self.index as usize]
-    }
-
     pub fn next<'a>(&'a mut self) -> Option<&'a T> {
         if self.vec.is_empty() || (!self.cycle && self.index == (self.vec.len() - 1) as isize) {
             return None;
@@ -44,6 +39,15 @@ impl<T> LoopTraverser<T> {
     #[inline]
     pub fn first<'a>(&'a self) -> Option<&'a T> {
         self.vec.front()
+    }
+
+    #[inline]
+    pub fn current<'a>(&'a self) -> &'a T {
+        if self.index == -1 {
+            &self.vec[0]
+        } else {
+            &self.vec[self.index as usize]
+        }
     }
 
     // --- --- --- --- --- ---

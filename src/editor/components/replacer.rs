@@ -49,6 +49,11 @@ impl Replacer {
     }
 
     #[inline]
+    pub fn current<'a>(&'a self) -> &'a EditorCursorPos {
+        self.match_list.current()
+    }
+
+    #[inline]
     pub fn next<'a>(&'a mut self) -> Option<&'a EditorCursorPos> {
         self.match_list.next()
     }

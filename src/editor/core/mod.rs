@@ -464,6 +464,31 @@ impl Editor {
                 }
             }
             EditorState::Replacing => {
+                fn replace_pos_processor(
+                    last_event: &EditorEvent,
+                    current_pos: EditorCursorPos,
+                    next_pos: &mut EditorCursorPos,
+                ) {
+                    let EditorEvent {
+                        op: EditorOperation::Replace(from, to),
+                        pos_before,
+                        ..
+                    } = last_event else {
+                        return;
+                    };
+
+                    if pos_before.row == next_pos.row {
+                        let text_diff = from.len().abs_diff(to.len());
+                        let col_diff = next_pos.col - current_pos.col;
+                        next_pos.col = pos_before.col + col_diff;
+                        if from.len() > to.len() {
+                            next_pos.col -= text_diff;
+                        } else {
+                            next_pos.col += text_diff;
+                        }
+                    }
+                }
+
                 if self.components.replacer.is_search_key(key) {
                     let target_content = self.components.replacer.search_text();
                     if let Some(pos_list) = self.search(target_content) {
@@ -483,9 +508,14 @@ impl Editor {
                 } else if self.components.replacer.is_replace_one_key(key) {
                     self.component_exec(|e| {
                         let replacer = &mut e.components.replacer;
-                        let next_pos = replacer.next().cloned();
+                        let current_pos = replacer.current().clone();
+                        let option_next_pos = replacer.next().cloned();
 
-                        if let Some(pos) = next_pos {
+                        if let Some(mut next_pos) = option_next_pos {
+                            if let Some(ev) = e.history.previous_event() {
+                                replace_pos_processor(ev, current_pos, &mut next_pos);
+                            }
+
                             let replace_op = EditorOperation::Replace(
                                 replacer.search_text().to_owned(),
                                 replacer.replace_text().to_owned(),
@@ -493,10 +523,8 @@ impl Editor {
                             let replace_count = replacer.search_text().len();
                             let replace_text = &replacer.replace_text().to_owned();
 
-                            e.jump_to(pos)?;
-                            e.append_event(replace_op, |e| {
-                                e.replace(replace_count, replace_text)
-                            })?;
+                            e.jump_to(next_pos)?;
+                            e.append_event(replace_op, |e| e.replace(replace_count, replace_text))?;
                         }
                         return Ok(());
                     })?;
@@ -512,11 +540,19 @@ impl Editor {
                         replacer.replace_text().to_owned(),
                     );
 
-                    while let Some(pos) = self.components.replacer.next().cloned() {
-                        self.jump_to(pos)?;
+                    let mut current_pos = replacer.current().clone();
+
+                    while let Some(mut next_pos) = self.components.replacer.next().cloned() {
+                        if let Some(ev) = self.history.previous_event() {
+                            replace_pos_processor(ev, current_pos, &mut next_pos);
+                        }
+
+                        self.jump_to(next_pos)?;
                         self.append_event(replace_op.clone(), |e| {
                             e.replace(replace_count, replace_text)
                         })?;
+    
+                        current_pos = self.components.replacer.current().clone();
                     }
                 }
             }
@@ -611,11 +647,13 @@ impl Editor {
         let mut result_pos_list = Vec::<EditorCursorPos>::new();
         for (index, line) in self.lines.iter().enumerate() {
             match line.find_all(target) {
-                Some(pos_list) => for pos in pos_list {
-                    result_pos_list.push(EditorCursorPos {
-                        row: index + 1,
-                        col: pos + 1,
-                    })
+                Some(pos_list) => {
+                    for pos in pos_list {
+                        result_pos_list.push(EditorCursorPos {
+                            row: index + 1,
+                            col: pos + 1,
+                        })
+                    }
                 }
                 None => {}
             }
