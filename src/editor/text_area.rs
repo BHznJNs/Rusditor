@@ -172,7 +172,6 @@ impl TextArea {
         let saved_cursor_pos = Cursor::pos_col()?;
         Cursor::move_to_col(self.margin_left)?;
         print!("{}{}", rendered_content, remain_space_str);
-        Terminal::flush()?;
         Cursor::move_to_col(saved_cursor_pos)?;
         return Ok(());
     }

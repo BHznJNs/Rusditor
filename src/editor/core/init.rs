@@ -33,7 +33,6 @@ impl EditorInit {
             Cursor::down(1)?;
             Cursor::move_to_col(0)?;
         }
-        Terminal::flush()?;
         return Ok(());
     }
 }

@@ -572,7 +572,6 @@ impl Editor {
             overflow_top: 0,
             overflow_bottom: 0,
 
-            // mode: EditorMode::Normal,
             components: EditorComponentManager::new(),
             history: EditorHistory::new(),
             dashboard: EditorDashboard::new(),
@@ -603,6 +602,7 @@ impl Editor {
             .move_cursor_to_start(label_width)?;
 
         self.render_all()?;
+        Terminal::flush()?;
         return Ok(());
     }
 
@@ -814,6 +814,7 @@ impl Editor {
                 _ => {}
             }
             self.dashboard_cursor_pos_refresh()?;
+            Terminal::flush()?;
         }
         self.close()?;
         return Ok(());
