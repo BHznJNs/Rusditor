@@ -97,6 +97,12 @@ impl Component for Finder {
             }
             KeyCode::Enter => {
                 let current_target = self.content();
+                if let Some(last_appended) = self.history.last() {
+                    // avoid repetitive history content
+                    if current_target == last_appended {
+                        return Ok(());
+                    }
+                }
                 self.history.append(current_target.to_owned());
             }
             k if ComponentController::is_editing_key(k) => {

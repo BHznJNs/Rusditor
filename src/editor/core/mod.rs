@@ -5,7 +5,7 @@ mod init;
 mod line;
 mod state;
 
-use std::{fs, io};
+use std::{fs, io, path::Path};
 
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
@@ -614,6 +614,10 @@ impl Editor {
 
     pub fn read_file(&mut self, path: &str) -> io::Result<()> {
         self.components.file_saver.set_path(path);
+        if !Path::new(path).exists() {
+            return Ok(());
+        }
+
         let file_read_res = fs::read_to_string(path);
         match file_read_res {
             Ok(content) => {

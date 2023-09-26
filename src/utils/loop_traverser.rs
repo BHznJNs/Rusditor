@@ -40,6 +40,10 @@ impl<T> LoopTraverser<T> {
     pub fn first<'a>(&'a self) -> Option<&'a T> {
         self.vec.front()
     }
+    #[inline]
+    pub fn last<'a>(&'a self) -> Option<&'a T> {
+        self.vec.back()
+    }
 
     #[inline]
     pub fn current<'a>(&'a self) -> &'a T {
@@ -56,10 +60,10 @@ impl<T> LoopTraverser<T> {
     pub fn push_back(&mut self, element: T) {
         self.vec.push_back(element);
     }
-    // #[inline]
-    // pub fn push_front(&mut self, element: T) {
-    //     self.vec.push_front(element);
-    // }
+    #[inline]
+    pub fn push_front(&mut self, element: T) {
+        self.vec.push_front(element);
+    }
     // #[inline]
     // pub fn pop_back(&mut self) -> Option<T> {
     //     self.vec.pop_back()

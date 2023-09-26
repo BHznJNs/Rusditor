@@ -7,22 +7,27 @@ pub struct ComponentHistory {
 impl ComponentHistory {
     pub fn new() -> Self {
         Self {
-            list: LoopTraverser::new(true),
+            list: LoopTraverser::new(false),
         }
     }
 
     #[inline]
     pub fn next<'a>(&'a mut self) -> Option<&'a String> {
-        self.list.next()
+        self.list.previous()
     }
     #[inline]
     pub fn previous<'a>(&'a mut self) -> Option<&'a String> {
-        self.list.previous()
+        self.list.next()
+    }
+
+    #[inline]
+    pub fn last<'a>(&'a self) -> Option<&'a String> {
+        self.list.first()
     }
 
     #[inline]
     pub fn append(&mut self, element: String) {
-        self.list.push_back(element);
+        self.list.push_front(element);
     }
     #[inline]
     pub fn reset_index(&mut self) {
