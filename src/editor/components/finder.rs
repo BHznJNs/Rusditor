@@ -2,7 +2,7 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{editor::cursor_pos::EditorCursorPos, utils::LoopTraverser};
+use crate::{editor::{cursor_pos::EditorCursorPos, text_area::TextArea}, utils::LoopTraverser};
 
 use super::{
     core::{ComponentController, ComponentHistory},
@@ -18,12 +18,15 @@ pub struct Finder {
 
 impl Finder {
     pub fn new() -> Self {
-        Self {
+        let mut controller = Self::init_controller();
+        controller.text_area.set_placeholder(ComponentHistory::HISTORY_PLACEHOLDER);
+
+        return Self {
             match_list: LoopTraverser::new(true),
 
             history: ComponentHistory::new(),
-            comp: Self::init_controller(),
-        }
+            comp: controller,
+        };
     }
 
     #[inline]
@@ -84,7 +87,13 @@ impl Component for Finder {
         match key.code {
             KeyCode::Up | KeyCode::Down => {
                 let history_content = match key.code {
-                    KeyCode::Up => self.history.previous(),
+                    KeyCode::Up => {
+                        if !self.history.use_history {
+                            let current_content = self.content().to_owned();
+                            self.history.set_cached(current_content);
+                        }
+                        self.history.previous()
+                    }
                     KeyCode::Down => self.history.next(),
                     _ => unreachable!(),
                 };
@@ -105,7 +114,7 @@ impl Component for Finder {
                 }
                 self.history.append(current_target.to_owned());
             }
-            k if ComponentController::is_editing_key(k) => {
+            k if TextArea::is_editing_key(k) => {
                 self.history.reset_index();
                 self.comp.edit(k)?;
             }

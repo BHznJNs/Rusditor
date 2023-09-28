@@ -1,6 +1,6 @@
 use std::io;
 
-use crossterm::style::Stylize;
+use crossterm::{style::Stylize, event::KeyCode};
 
 use crate::utils::{Cursor, Terminal};
 
@@ -63,6 +63,14 @@ impl TextArea {
     pub fn visible_area_width(&self) -> usize {
         let term_width = Terminal::width();
         return term_width - self.margin_left - self.margin_right;
+    }
+
+    #[inline]
+    pub fn is_editing_key(key: KeyCode) -> bool {
+        match key {
+            KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_) => true,
+            _ => false,
+        }
     }
 
     fn overflow_refresh(&mut self) {

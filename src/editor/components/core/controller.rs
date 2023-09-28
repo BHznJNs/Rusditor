@@ -7,8 +7,6 @@ use crate::{
     utils::{Cursor, Terminal},
 };
 
-#[derive(Clone)]
-
 pub struct ComponentController {
     pub prompt: &'static str,
     pub button: &'static str,
@@ -40,14 +38,6 @@ impl ComponentController {
         self.text_area.render()?;
         self.text_area.move_cursor_to_end()?;
         return Ok(());
-    }
-
-    #[inline]
-    pub fn is_editing_key(key: KeyCode) -> bool {
-        match key {
-            KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_) => true,
-            _ => false,
-        }
     }
 
     pub fn edit(&mut self, key: KeyCode) -> io::Result<()> {

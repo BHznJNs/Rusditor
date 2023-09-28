@@ -4,6 +4,7 @@ use std::{
     io::{self, Write},
 };
 
+#[allow(dead_code)]
 // output something into file
 // this function is used to debug.
 pub fn log<T: Display>(content: T) -> io::Result<()> {

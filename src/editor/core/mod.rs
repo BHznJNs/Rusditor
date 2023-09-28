@@ -34,7 +34,7 @@ use super::{
 
 pub struct Editor {
     lines: Vec<EditorLine>,
-    current_row: usize, // current editing line index
+    index: usize, // current editing line index
 
     overflow_top: usize,
     overflow_bottom: usize,
@@ -104,26 +104,23 @@ impl Editor {
 
     fn move_cursor_horizontal(&mut self, dir: Direction) -> io::Result<()> {
         let label_width = self.label_width();
-        let current_line = &mut self.lines[self.current_row - 1];
+        let line_count = self.lines.len();
+        let current_line = &mut self.lines[self.index - 1];
 
         match dir {
             Direction::Left => {
-                if current_line.is_at_line_start()? {
-                    if self.current_row > 1 {
-                        self.move_cursor_vertical(Direction::Up)?;
-                        let current_line = self.lines.get_mut(self.current_row - 1).unwrap();
-                        current_line.move_cursor_to_end(label_width)?;
-                    }
+                if current_line.is_at_line_start()? && self.index > 1 {
+                    self.move_cursor_vertical(Direction::Up)?;
+                    let current_line = self.lines.get_mut(self.index - 1).unwrap();
+                    current_line.move_cursor_to_end(label_width)?;
                     return Ok(());
                 }
             }
             Direction::Right => {
-                if current_line.is_at_line_end()? {
-                    if self.current_row < self.lines.len() {
-                        self.move_cursor_vertical(Direction::Down)?;
-                        let current_line = self.lines.get_mut(self.current_row - 1).unwrap();
-                        current_line.move_cursor_to_start(label_width)?;
-                    }
+                if current_line.is_at_line_end()? && self.index < line_count {
+                    self.move_cursor_vertical(Direction::Down)?;
+                    let current_line = self.lines.get_mut(self.index - 1).unwrap();
+                    current_line.move_cursor_to_start(label_width)?;
                     return Ok(());
                 }
             }
@@ -137,26 +134,26 @@ impl Editor {
         let target_line = match dir {
             Direction::Up => {
                 let is_at_top_side = cursor_pos == 1;
-                let is_at_first_line = self.current_row == 1;
+                let is_at_first_line = self.index == 1;
                 if is_at_first_line {
                     return Ok(());
                 }
-                self.current_row -= 1;
+                self.index -= 1;
                 if is_at_top_side {
                     self.overflow_top -= 1;
                     self.overflow_bottom += 1;
                 } else {
                     Cursor::up(1)?;
                 }
-                self.lines.get(self.current_row - 1).unwrap()
+                self.lines.get(self.index - 1).unwrap()
             }
             Direction::Down => {
                 let is_at_bottom_side = cursor_pos == Terminal::height() - 2;
-                let is_at_last_line = self.current_row == self.lines.len();
+                let is_at_last_line = self.index == self.lines.len();
                 if is_at_last_line {
                     return Ok(());
                 }
-                self.current_row += 1;
+                self.index += 1;
                 if is_at_bottom_side {
                     if self.lines.len() == self.visible_area_height() {
                         self.overflow_bottom += 1;
@@ -167,7 +164,7 @@ impl Editor {
                 } else {
                     Cursor::down(1)?;
                 }
-                self.lines.get(self.current_row - 1).unwrap()
+                self.lines.get(self.index - 1).unwrap()
             }
             _ => unreachable!(),
         };
@@ -183,7 +180,7 @@ impl Editor {
 
     fn insert_line(&mut self) -> io::Result<()> {
         let label_width = self.label_width_with(self.lines.len() + 1);
-        let current_line = &mut self.lines[self.current_row - 1];
+        let current_line = &mut self.lines[self.index - 1];
 
         let is_at_line_end = current_line.is_at_line_end()?;
         let mut new_line = EditorLine::new(label_width);
@@ -200,7 +197,7 @@ impl Editor {
         let insert_pos = Cursor::pos_row()? + self.overflow_top;
         self.lines.insert(insert_pos, new_line);
 
-        self.current_row += 1;
+        self.index += 1;
         // scroll
         if self.lines.len() > self.visible_area_height() {
             self.overflow_top += 1;
@@ -213,7 +210,7 @@ impl Editor {
     }
 
     fn insert_char(&mut self, ch: char) -> io::Result<()> {
-        let current_line = &mut self.lines[self.current_row - 1];
+        let current_line = &mut self.lines[self.index - 1];
         current_line.insert_char(ch)?;
         return Ok(());
     }
@@ -234,7 +231,7 @@ impl Editor {
                 line.move_cursor_horizontal(Direction::Left)?;
             }
         }
-        self.current_row -= 1;
+        self.index -= 1;
         // scroll
         let is_overflowed = self.lines.len() >= self.visible_area_height();
         if is_overflowed && self.overflow_top > 0 {
@@ -250,13 +247,13 @@ impl Editor {
     fn delete(&mut self) -> io::Result<()> {
         let cursor_pos = Cursor::pos_col()?;
         let label_width = self.label_width();
-        if cursor_pos == label_width && self.current_row == 1 {
+        if cursor_pos == label_width && self.index == 1 {
             // when at the start of the first line.
             return Ok(());
         }
 
         let pos_before = self.cursor_pos()?;
-        let current_line = &mut self.lines[self.current_row - 1];
+        let current_line = &mut self.lines[self.index - 1];
 
         if current_line.is_at_line_start()? {
             self.append_event(EditorOperation::DeleteLine, |e| e.delete_line())?;
@@ -275,7 +272,7 @@ impl Editor {
     }
 
     fn replace(&mut self, count: usize, to: &str) -> io::Result<()> {
-        let current_line = &mut self.lines[self.current_row - 1];
+        let current_line = &mut self.lines[self.index - 1];
         for _ in 0..count {
             current_line.move_cursor_horizontal(Direction::Right)?;
             current_line.delete_char()?;
@@ -294,7 +291,7 @@ impl Editor {
         match op {
             EditorOperation::InsertChar(ch) => self.insert_char(ch)?,
             EditorOperation::DeleteChar(_) => {
-                let current_line = &mut self.lines[self.current_row - 1];
+                let current_line = &mut self.lines[self.index - 1];
                 current_line.delete_char()?;
             }
             EditorOperation::InsertLine => self.insert_line()?,
@@ -349,7 +346,7 @@ impl Editor {
 // cursor position controller
 impl Editor {
     fn cursor_pos(&self) -> io::Result<EditorCursorPos> {
-        let current_line = &self.lines[self.current_row - 1];
+        let current_line = &self.lines[self.index - 1];
         let col = current_line.cursor_pos()? + 1;
         let row = Cursor::pos_row()? + self.overflow_top;
         return Ok(EditorCursorPos { row, col });
@@ -364,7 +361,7 @@ impl Editor {
             let target_line = &self.lines[row - 1];
             col == 0 || col > target_line.len() + 1
         };
-        return !is_row_overflow || !is_col_overflow;
+        return !is_row_overflow && !is_col_overflow;
     }
 
     fn jump_to(&mut self, target_pos: EditorCursorPos) -> io::Result<()> {
@@ -374,16 +371,16 @@ impl Editor {
 
         // move to target row
         let target_row = target_pos.row;
-        let (dir, diff) = if target_row > self.current_row {
-            (Direction::Down, target_row - self.current_row)
+        let (dir, diff) = if target_row > self.index {
+            (Direction::Down, target_row - self.index)
         } else {
-            (Direction::Up, self.current_row - target_row)
+            (Direction::Up, self.index - target_row)
         };
         for _ in 0..diff {
             self.move_cursor_vertical(dir)?;
         }
         // is not first and last line
-        if self.current_row != 1 && self.current_row != self.lines.len() {
+        if self.index != 1 && self.index != self.lines.len() {
             self.move_cursor_vertical(dir)?;
             self.move_cursor_vertical(dir.rev())?;
         }
@@ -509,9 +506,8 @@ impl Editor {
                     self.component_exec(|e| {
                         let replacer = &mut e.components.replacer;
                         let current_pos = replacer.current().clone();
-                        let option_next_pos = replacer.next().cloned();
 
-                        if let Some(mut next_pos) = option_next_pos {
+                        if let Some(mut next_pos) = replacer.next().cloned() {
                             if let Some(ev) = e.history.previous_event() {
                                 replace_pos_processor(ev, current_pos, &mut next_pos);
                             }
@@ -522,6 +518,7 @@ impl Editor {
                             );
                             let replace_count = replacer.search_text().len();
                             let replace_text = &replacer.replace_text().to_owned();
+                            replacer.replace_handler();
 
                             e.jump_to(next_pos)?;
                             e.append_event(replace_op, |e| e.replace(replace_count, replace_text))?;
@@ -539,6 +536,7 @@ impl Editor {
                         replacer.search_text().to_owned(),
                         replacer.replace_text().to_owned(),
                     );
+                    replacer.replace_handler();
 
                     let mut current_pos = replacer.current().clone();
 
@@ -567,7 +565,7 @@ impl Editor {
     pub fn new() -> Self {
         Self {
             lines: vec![],
-            current_row: 1,
+            index: 1,
 
             overflow_top: 0,
             overflow_bottom: 0,

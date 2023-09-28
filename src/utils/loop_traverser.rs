@@ -25,6 +25,9 @@ impl<T> LoopTraverser<T> {
     }
     pub fn previous<'a>(&'a mut self) -> Option<&'a T> {
         if self.vec.is_empty() || (!self.cycle && (self.index == 0 || self.index == -1)) {
+            if self.index == 0 {
+                self.index = -1;
+            }
             return None;
         }
 
@@ -40,10 +43,10 @@ impl<T> LoopTraverser<T> {
     pub fn first<'a>(&'a self) -> Option<&'a T> {
         self.vec.front()
     }
-    #[inline]
-    pub fn last<'a>(&'a self) -> Option<&'a T> {
-        self.vec.back()
-    }
+    // #[inline]
+    // pub fn last<'a>(&'a self) -> Option<&'a T> {
+    //     self.vec.back()
+    // }
 
     #[inline]
     pub fn current<'a>(&'a self) -> &'a T {
@@ -56,10 +59,10 @@ impl<T> LoopTraverser<T> {
 
     // --- --- --- --- --- ---
 
-    #[inline]
-    pub fn push_back(&mut self, element: T) {
-        self.vec.push_back(element);
-    }
+    // #[inline]
+    // pub fn push_back(&mut self, element: T) {
+    //     self.vec.push_back(element);
+    // }
     #[inline]
     pub fn push_front(&mut self, element: T) {
         self.vec.push_front(element);
@@ -108,12 +111,23 @@ fn test() {
     let mut cycling_traverser = LoopTraverser::new(true);
     cycling_traverser.set_content(vec![1, 2, 3, 4]);
 
-    assert_eq!(cycling_traverser.previous(), Some(&4));
-    cycling_traverser.reset_index();
     assert_eq!(cycling_traverser.next(), Some(&1));
     assert_eq!(cycling_traverser.next(), Some(&2));
     assert_eq!(cycling_traverser.next(), Some(&3));
     assert_eq!(cycling_traverser.next(), Some(&4));
+    assert_eq!(cycling_traverser.next(), Some(&1));
+    assert_eq!(cycling_traverser.next(), Some(&2));
+    assert_eq!(cycling_traverser.next(), Some(&3));
+    assert_eq!(cycling_traverser.next(), Some(&4));
+
+    assert_eq!(cycling_traverser.previous(), Some(&3));
+    assert_eq!(cycling_traverser.previous(), Some(&2));
+    assert_eq!(cycling_traverser.previous(), Some(&1));
+    assert_eq!(cycling_traverser.previous(), Some(&4));
+    assert_eq!(cycling_traverser.previous(), Some(&3));
+    assert_eq!(cycling_traverser.previous(), Some(&2));
+    assert_eq!(cycling_traverser.previous(), Some(&1));
+    assert_eq!(cycling_traverser.previous(), Some(&4));
 
     // --- --- --- --- --- ---
 
