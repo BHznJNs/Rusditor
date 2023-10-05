@@ -1,11 +1,10 @@
 use std::io;
 
-use crossterm::{style::Stylize, event::KeyCode};
+use crossterm::{event::KeyCode, style::Stylize};
 
 use crate::utils::{Cursor, Terminal};
 
 use super::direction::Direction;
-#[derive(Clone)]
 
 pub struct TextArea {
     content: String,
@@ -67,10 +66,10 @@ impl TextArea {
 
     #[inline]
     pub fn is_editing_key(key: KeyCode) -> bool {
-        match key {
-            KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_) => true,
-            _ => false,
-        }
+        matches!(
+            key,
+            KeyCode::Backspace | KeyCode::Left | KeyCode::Right | KeyCode::Char(_)
+        )
     }
 
     fn overflow_refresh(&mut self) {
@@ -166,13 +165,11 @@ impl TextArea {
             } else {
                 self.placeholder.as_str().dim()
             }
+        } else if self.len() > visible_area_width {
+            let rendered_range = self.overflow_left..(self.len() - self.overflow_right);
+            self.content[rendered_range].stylize()
         } else {
-            if self.len() > visible_area_width {
-                let rendered_range = self.overflow_left..(self.len() - self.overflow_right);
-                self.content[rendered_range].stylize()
-            } else {
-                self.content.as_str().stylize()
-            }
+            self.content.as_str().stylize()
         };
         let remain_area_width = visible_area_width - rendered_content.content().len();
         let remain_space_str = " ".repeat(remain_area_width);
@@ -248,7 +245,7 @@ impl TextArea {
     }
 
     #[inline]
-    pub fn content<'a>(&'a self) -> &'a str {
+    pub fn content(&self) -> &str {
         &self.content
     }
 

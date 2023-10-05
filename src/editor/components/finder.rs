@@ -2,7 +2,10 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{editor::{cursor_pos::EditorCursorPos, text_area::TextArea}, utils::LoopTraverser};
+use crate::{
+    editor::{cursor_pos::EditorCursorPos, text_area::TextArea},
+    utils::LoopTraverser,
+};
 
 use super::{
     core::{ComponentController, ComponentHistory},
@@ -19,7 +22,9 @@ pub struct Finder {
 impl Finder {
     pub fn new() -> Self {
         let mut controller = Self::init_controller();
-        controller.text_area.set_placeholder(ComponentHistory::HISTORY_PLACEHOLDER);
+        controller
+            .text_area
+            .set_placeholder(ComponentHistory::HISTORY_PLACEHOLDER);
 
         return Self {
             match_list: LoopTraverser::new(true),
@@ -35,16 +40,16 @@ impl Finder {
     }
 
     #[inline]
-    pub fn next<'a>(&'a mut self) -> Option<&'a EditorCursorPos> {
+    pub fn next(&mut self) -> Option<&EditorCursorPos> {
         self.match_list.next()
     }
     #[inline]
-    pub fn previous<'a>(&'a mut self) -> Option<&'a EditorCursorPos> {
+    pub fn previous(&mut self) -> Option<&EditorCursorPos> {
         self.match_list.previous()
     }
 
     #[inline]
-    pub fn content<'a>(&'a self) -> &'a str {
+    pub fn content(&self) -> &str {
         self.comp.text_area.content()
     }
     #[inline]
@@ -66,7 +71,6 @@ impl Finder {
     pub fn is_reverse_finding_key(key: KeyEvent) -> bool {
         key.modifiers == KeyModifiers::SHIFT && key.code == KeyCode::Enter
     }
-
 }
 
 impl Component for Finder {
