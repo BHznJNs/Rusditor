@@ -72,6 +72,20 @@ impl TextArea {
         )
     }
 
+    // returns number of continuous alphabetic char.
+    // e.g.
+    //   in : ['a', 'b', ' ', 'c']
+    //   out: 2
+    // --- --- --- --- --- ---
+    //   in : [' ', 'a', 'b']
+    //   out: 1
+    fn continuous_word_count(chars: impl Iterator<Item = char>) -> usize {
+        let counter = chars
+            .map_while(|ch| ch.is_alphabetic().then_some(()))
+            .count();
+        return counter;
+    }
+
     fn overflow_refresh(&mut self) {
         let visible_area_width = self.visible_area_width();
         if self.len() > visible_area_width {
@@ -137,6 +151,34 @@ impl TextArea {
             _ => unreachable!(),
         }
         self.render()?;
+        return Ok(());
+    }
+
+    pub fn jump_to_word_edge(&mut self, dir: Direction) -> io::Result<()> {
+        let cursor_pos = self.cursor_pos()?;
+        let mut displacement = match dir {
+            Direction::Left => {
+                let iter = self.content()[..cursor_pos].chars().rev();
+                Self::continuous_word_count(iter)
+            }
+            Direction::Right => {
+                let iter = self.content()[cursor_pos..].chars();
+                Self::continuous_word_count(iter)
+            }
+            _ => unreachable!(),
+        };
+
+        // when displacement is 0 and cursor is not at left and right end
+        if displacement == 0
+            && !(dir == Direction::Left && self.state_left()?.is_at_area_start)
+            && !(dir == Direction::Right && self.state_right()?.is_at_area_end)
+        {
+            displacement = 1;
+        }
+
+        for _ in 0..displacement {
+            self.move_cursor_horizontal(dir)?;
+        }
         return Ok(());
     }
 }
