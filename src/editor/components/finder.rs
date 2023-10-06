@@ -58,7 +58,8 @@ impl Finder {
     }
     #[inline]
     pub fn clear(&mut self) {
-        self.match_list.clear()
+        self.comp.text_area.clear();
+        self.match_list.clear();
     }
 
     // --- --- --- --- --- ---
