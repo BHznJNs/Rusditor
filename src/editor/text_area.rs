@@ -96,21 +96,26 @@ impl TextArea {
         }
     }
 
-    pub fn move_cursor_to_start(&mut self) -> io::Result<()> {
+    pub fn move_cursor_to_start(&mut self, rerender: bool) -> io::Result<()> {
         if self.len() >= self.visible_area_width() {
             self.overflow_right += self.overflow_left;
             self.overflow_left = 0;
-            self.render()?;
+            if rerender {
+                self.render()?;
+            }
         }
         Cursor::move_to_col(self.margin_left)?;
         return Ok(());
     }
-    pub fn move_cursor_to_end(&mut self) -> io::Result<()> {
+    pub fn move_cursor_to_end(&mut self, rerender: bool) -> io::Result<()> {
         if self.len() >= self.visible_area_width() {
             Cursor::move_to_col(Terminal::width() - 1)?;
             self.overflow_left += self.overflow_right;
             self.overflow_right = 0;
-            self.render()?;
+
+            if rerender {
+                self.render()?;
+            }
         } else {
             let line_end_pos = self.margin_left + self.len();
             Cursor::move_to_col(line_end_pos)?;
@@ -118,7 +123,7 @@ impl TextArea {
         return Ok(());
     }
 
-    pub fn move_cursor_horizontal(&mut self, dir: Direction) -> io::Result<()> {
+    pub fn move_cursor_horizontal(&mut self, dir: Direction, rerender: bool) -> io::Result<()> {
         match dir {
             Direction::Left => {
                 let state = self.state_left()?;
@@ -150,11 +155,13 @@ impl TextArea {
             }
             _ => unreachable!(),
         }
-        self.render()?;
+        if rerender {
+            self.render()?;
+        }
         return Ok(());
     }
 
-    pub fn jump_to_word_edge(&mut self, dir: Direction) -> io::Result<()> {
+    pub fn jump_to_word_edge(&mut self, dir: Direction, rerender: bool) -> io::Result<()> {
         let cursor_pos = self.cursor_pos()?;
         let mut displacement = match dir {
             Direction::Left => {
@@ -177,7 +184,10 @@ impl TextArea {
         }
 
         for _ in 0..displacement {
-            self.move_cursor_horizontal(dir)?;
+            self.move_cursor_horizontal(dir, false)?;
+        }
+        if rerender {
+            self.render()?;
         }
         return Ok(());
     }
@@ -223,7 +233,7 @@ impl TextArea {
         return Ok(());
     }
 
-    pub fn insert_char(&mut self, ch: char) -> io::Result<()> {
+    pub fn insert_char(&mut self, ch: char, rerender: bool) -> io::Result<()> {
         let insert_pos = self.cursor_pos()?;
         self.content.insert(insert_pos, ch);
 
@@ -232,11 +242,13 @@ impl TextArea {
         } else {
             Cursor::right(1)?;
         }
-        self.render()?;
+        if rerender {
+            self.render()?;
+        }
         return Ok(());
     }
 
-    pub fn delete_char(&mut self) -> io::Result<Option<char>> {
+    pub fn delete_char(&mut self, rerender: bool) -> io::Result<Option<char>> {
         if self.state_left()?.is_at_area_start {
             return Ok(None);
         }
@@ -249,7 +261,9 @@ impl TextArea {
         } else {
             Cursor::left(1)?;
         }
-        self.render()?;
+        if rerender {
+            self.render()?;
+        }
         return Ok(Some(removed_ch));
     }
 

@@ -190,8 +190,8 @@ impl Component for Replacer {
                         ReplacerState::Replacing => &mut self.replacer.text_area,
                     };
                     text_area.set_content(str);
+                    text_area.move_cursor_to_end(false)?;
                     text_area.render()?;
-                    text_area.move_cursor_to_end()?;
                 }
             }
             k if TextArea::is_editing_key(k) => match self.state {

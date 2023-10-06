@@ -104,8 +104,8 @@ impl Component for Finder {
                 if let Some(str) = history_content {
                     let text_area = &mut self.comp.text_area;
                     text_area.set_content(str);
+                    text_area.move_cursor_to_end(false)?;
                     text_area.render()?;
-                    text_area.move_cursor_to_end()?;
                 }
             }
             KeyCode::Enter => {
