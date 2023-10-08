@@ -3,6 +3,7 @@ use std::io;
 use crossterm::style::Stylize;
 
 use super::EditorState;
+use crate::editor::core::color::EditorColor;
 use crate::editor::cursor_pos::{EditorCursorPos, TerminalCursorPos};
 use crate::utils::{Cursor, Terminal};
 
@@ -37,15 +38,18 @@ impl EditorDashboard {
         Cursor::move_to_row(Terminal::height() - 1)?;
         Cursor::move_to_col(0)?;
 
-        let state_str = format!(" {} ", self.state).white().on_dark_red();
-        let cursor_pos_str = format!(" {} ", self.cursor_pos).white().on_dark_red();
+        let state_str = format!(" {} ", self.state);
+        let cursor_pos_str = format!(" {} ", self.cursor_pos);
 
         // `2` here is space for left-margin and right-margin
-        let remain_space =
-            Terminal::width() - state_str.content().len() - cursor_pos_str.content().len();
+        let remain_space = Terminal::width() - state_str.len() - cursor_pos_str.len();
         let divider_str = " ".repeat(remain_space).on_white();
 
-        print!("{state_str}{divider_str}{cursor_pos_str}");
+        print!(
+            "{}{divider_str}{}",
+            EditorColor::highlight_style(state_str),
+            EditorColor::highlight_style(cursor_pos_str)
+        );
         self.temp_cursor_pos.restore_pos()?;
         return Ok(());
     }

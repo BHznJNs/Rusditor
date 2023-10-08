@@ -1,3 +1,4 @@
+mod color;
 mod dashboard;
 mod event;
 mod history;
@@ -94,7 +95,7 @@ impl Editor {
             for _ in 0..diff {
                 Cursor::move_to_col(0)?;
                 Terminal::clear_after_cursor()?;
-                print!("{}", " ".repeat(label_width).on_white());
+                print!("{}", " ".repeat(label_width).on_grey());
                 Cursor::down(1)?;
             }
         }
@@ -130,14 +131,19 @@ impl Editor {
         return Ok(());
     }
     fn move_cursor_vertical(&mut self, dir: Direction) -> io::Result<()> {
-        let cursor_pos = Cursor::pos_row()?;
+        let is_at_first_line = self.index == 1;
+        let is_at_last_line = self.index == self.lines.len();
+        if (is_at_first_line && dir == Direction::Up) || (is_at_last_line && dir == Direction::Down)
+        {
+            return Ok(());
+        }
+
+        self.lines[self.index - 1].disable()?; // disable current line
+        let (cursor_pos_row, cursor_pos_col) = (Cursor::pos_row()?, Cursor::pos_col()?);
+        let label_width = self.label_width();
         let target_line = match dir {
             Direction::Up => {
-                let is_at_top_side = cursor_pos == 1;
-                let is_at_first_line = self.index == 1;
-                if is_at_first_line {
-                    return Ok(());
-                }
+                let is_at_top_side = cursor_pos_row == 1;
                 self.index -= 1;
                 if is_at_top_side {
                     self.overflow_top -= 1;
@@ -145,14 +151,10 @@ impl Editor {
                 } else {
                     Cursor::up(1)?;
                 }
-                self.lines.get(self.index - 1).unwrap()
+                self.lines.get_mut(self.index - 1).unwrap()
             }
             Direction::Down => {
-                let is_at_bottom_side = cursor_pos == Terminal::height() - 2;
-                let is_at_last_line = self.index == self.lines.len();
-                if is_at_last_line {
-                    return Ok(());
-                }
+                let is_at_bottom_side = cursor_pos_row == Terminal::height() - 2;
                 self.index += 1;
                 if is_at_bottom_side {
                     if self.lines.len() == self.visible_area_height() {
@@ -164,17 +166,15 @@ impl Editor {
                 } else {
                     Cursor::down(1)?;
                 }
-                self.lines.get(self.index - 1).unwrap()
+                self.lines.get_mut(self.index - 1).unwrap()
             }
             _ => unreachable!(),
         };
-        let label_width = self.label_width();
-        let cursor_pos = Cursor::pos_col()?;
-
         // if target_line is shorter than current line
-        if cursor_pos > target_line.len() + label_width {
-            Cursor::left(cursor_pos - label_width - target_line.len())?;
+        if cursor_pos_col > target_line.len() + label_width {
+            Cursor::left(cursor_pos_col - label_width - target_line.len())?;
         }
+        target_line.active()?;
         return Ok(());
     }
 
@@ -183,7 +183,7 @@ impl Editor {
         let current_line = &mut self.lines[self.index - 1];
 
         let is_at_line_end = current_line.is_at_line_end()?;
-        let mut new_line = EditorLine::new(label_width);
+        let mut new_line = EditorLine::new(label_width, true);
         if !is_at_line_end {
             // when input Enter, if cursor is not at line end,
             // truncate current line and push truncated string
@@ -191,6 +191,7 @@ impl Editor {
             let truncated_str = current_line.truncate()?;
             new_line.push_str(&truncated_str);
         }
+        current_line.disable()?;
         new_line.move_cursor_to_start(label_width)?;
 
         // insert new line
@@ -226,6 +227,7 @@ impl Editor {
         if let Some(line) = previous_line {
             line.push_str(deleted_line.content());
             line.move_cursor_to_end(label_width)?;
+            line.active()?;
 
             for _ in 0..deleted_line.len() {
                 line.move_cursor_horizontal(Direction::Left)?;
@@ -589,7 +591,7 @@ impl Editor {
         // lines.is_empty() == true -> no file reading
         if self.lines.is_empty() {
             // `2` here is the width of line label ("1 ") in terminal.
-            self.lines.push(EditorLine::new(2));
+            self.lines.push(EditorLine::new(2, true));
         }
 
         // move cursor to start of first line
@@ -632,7 +634,7 @@ impl Editor {
 
                 self.lines = file_lines
                     .map(|l| {
-                        let mut new_line = EditorLine::new(label_width);
+                        let mut new_line = EditorLine::new(label_width, false);
                         new_line.push_str(l);
                         new_line
                     })
@@ -722,10 +724,11 @@ impl Editor {
                 match self.lines.get_mut(covered_pos) {
                     Some(covered_line) => covered_line.render(covered_pos + 1, label_width)?,
                     None => {
+                        // render blank line
                         let label_width = self.label_width();
                         Cursor::move_to_col(0)?;
                         Terminal::clear_after_cursor()?;
-                        print!("{}", " ".repeat(label_width).on_white());
+                        print!("{}", " ".repeat(label_width).on_grey());
                     }
                 }
                 Cursor::restore_pos()?;
@@ -758,7 +761,7 @@ impl Editor {
                         'f' => self.toggle_state(EditorState::Finding)?,
                         'r' => self.toggle_state(EditorState::Replacing)?,
                         _ => {}
-                    }
+                    },
 
                     // ignore other Ctrl shotcuts
                     _ => {}
