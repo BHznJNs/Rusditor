@@ -24,7 +24,7 @@ pub use state::EditorState;
 
 use self::{
     event::{EditorEvent, EditorOperation},
-    history::EditorHistory,
+    history::EditorHistory, color::EditorColor,
 };
 
 use super::{components::Finder, direction::Direction};
@@ -611,6 +611,11 @@ impl Editor {
         disable_raw_mode()?;
         execute!(io::stdout(), LeaveAlternateScreen)?;
         return Ok(());
+    }
+
+    #[inline]
+    pub fn set_accent_color(color: &str) {
+        EditorColor::set_accent_color(color);
     }
 
     pub fn read_file(&mut self, path: &str) -> io::Result<()> {
