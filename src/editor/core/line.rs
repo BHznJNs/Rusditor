@@ -64,7 +64,7 @@ impl EditorLine {
             is_active,
 
             cached_index: 0,
-            cached_label_width: 0,
+            cached_label_width: width,
         }
     }
 

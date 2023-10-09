@@ -2,7 +2,7 @@ mod accent;
 
 use std::fmt::Display;
 
-use crossterm::style::{Stylize, StyledContent};
+use crossterm::style::{StyledContent, Stylize};
 
 use accent::AccentColor;
 
@@ -16,9 +16,11 @@ impl EditorColor {
     }
 
     pub fn highlight_style<D>(content: D) -> StyledContent<D>
-        where D: Display + Stylize<Styled = StyledContent<D>> {
+    where
+        D: Display + Stylize<Styled = StyledContent<D>>,
+    {
         let mut styled = content.white();
-        styled = match unsafe { ACCENT_COLOR } {
+        styled = match unsafe { &ACCENT_COLOR } {
             AccentColor::Red => styled.on_red(),
             AccentColor::Blue => styled.on_blue(),
             AccentColor::DarkRed => styled.on_dark_red(),
@@ -33,12 +35,16 @@ impl EditorColor {
 
     #[inline]
     pub fn line_active_style<D>(content: D) -> StyledContent<D>
-        where D: Display + Stylize<Styled = StyledContent<D>> {
+    where
+        D: Display + Stylize<Styled = StyledContent<D>>,
+    {
         content.bold().black().on_white()
     }
     #[inline]
     pub fn line_disabled_style<D>(content: D) -> StyledContent<D>
-        where D: Display + Stylize<Styled = StyledContent<D>> {
+    where
+        D: Display + Stylize<Styled = StyledContent<D>>,
+    {
         content.dark_grey().on_grey()
     }
 }

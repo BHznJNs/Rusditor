@@ -1,4 +1,3 @@
-#[derive(Clone, Copy)]
 pub enum AccentColor {
     Red,
     Blue,
