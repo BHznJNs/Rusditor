@@ -10,6 +10,8 @@ A simple text editor runs on terminals.
 | --- | --- |
 | Ctrl + s | Open / Close file saving component |
 | Enter (When file-saver opened) | Write file |
+| Ctrl + o | Open / Close file opening component |
+| Enter (When file-opener opened) | Open file |
 | Ctrl + g | Open / Close positioner component |
 | Enter (When positioner opened) | Jump to target position |
 | Ctrl + f | Open / Close finder component |
