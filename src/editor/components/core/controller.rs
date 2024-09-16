@@ -7,7 +7,7 @@ use crate::{
     utils::{Cursor, Terminal},
 };
 
-pub struct ComponentController {
+pub struct LineComponentController {
     pub prompt: &'static str,
     pub button: &'static str,
     pub text_area: TextArea,
@@ -20,7 +20,7 @@ pub struct ComponentController {
     pub editable: bool,
 }
 
-impl ComponentController {
+impl LineComponentController {
     pub fn open(&mut self) -> io::Result<()> {
         let render_pos = if self.position >= 0 {
             self.position as usize
@@ -55,6 +55,33 @@ impl ComponentController {
             KeyCode::Right => text_area.move_cursor_horizontal(Direction::Right, true)?,
             KeyCode::Char(ch) => text_area.insert_char(ch, true)?,
             _ => unreachable!(),
+        }
+        return Ok(());
+    }
+}
+
+// --- --- --- --- --- ---
+
+pub struct ScreenComponentController {
+    pub content: String,
+}
+
+impl ScreenComponentController {
+    pub fn render(&self) -> io::Result<()> {
+        Cursor::move_to_col(1)?;
+        Cursor::move_to_row(0)?;
+
+        let term_width = Terminal::width();
+        let mut slice = &self.content[..];
+        while !slice.is_empty() {
+            if slice.len() > term_width {
+                print!("{}", &slice[0..term_width]);
+                slice = &slice[term_width..];
+                Cursor::down(1)?;
+            } else {
+                print!("{}", slice);
+                break;
+            }
         }
         return Ok(());
     }

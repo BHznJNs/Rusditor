@@ -4,11 +4,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::editor::{cursor_pos::EditorCursorPos, text_area::TextArea};
 
-use super::{core::ComponentController, Component};
+use super::{core::LineComponentController, LineComponent};
 
 pub struct Positioner {
     target: EditorCursorPos,
-    comp: ComponentController,
+    comp: LineComponentController,
 }
 
 impl Positioner {
@@ -42,7 +42,7 @@ impl Positioner {
     }
 }
 
-impl Component for Positioner {
+impl LineComponent for Positioner {
     const PROMPT: &'static str = "Jump to: ";
     const BUTTON: &'static str = "[Enter]";
     const POSITION: isize = -1;

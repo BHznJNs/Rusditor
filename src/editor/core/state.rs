@@ -7,9 +7,12 @@ pub enum EditorState {
 
     // states for components
     Saving,
+    Opening,
     Positioning,
     Finding,
     Replacing,
+
+    ReadingHelpMsg
 }
 
 impl EditorState {
@@ -25,9 +28,12 @@ impl fmt::Display for EditorState {
             Self::Modified => "Modified",
 
             Self::Saving => "Saving",
+            Self::Opening => "Opening",
             Self::Positioning => "Positioning",
             Self::Finding => "Finding",
             Self::Replacing => "Replacing",
+
+            Self::ReadingHelpMsg => "Reading",
         };
         write!(f, "{}", str)
     }

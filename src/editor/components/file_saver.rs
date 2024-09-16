@@ -8,15 +8,15 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::editor::text_area::TextArea;
 
-use super::core::{Component, ComponentController};
+use super::core::{LineComponent, LineComponentController};
 
 pub struct FileSaver {
     editor_content: String,
-    comp: ComponentController,
+    comp: LineComponentController,
 }
 
 impl FileSaver {
-    const DEFAULT_FILE_NAME: &str = "temp.txt";
+    const DEFAULT_FILE_NAME: &'static str = "temp.txt";
 
     pub fn new() -> Self {
         let mut controller = Self::init_controller();
@@ -55,7 +55,7 @@ impl FileSaver {
     }
 }
 
-impl Component for FileSaver {
+impl LineComponent for FileSaver {
     const PROMPT: &'static str = "Path: ";
     const BUTTON: &'static str = "[Enter]";
     const POSITION: isize = 1;

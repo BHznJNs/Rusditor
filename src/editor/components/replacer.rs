@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    core::{ComponentController, ComponentHistory},
-    Component,
+    core::{LineComponentController, ComponentHistory},
+    LineComponent,
 };
 
 #[derive(PartialEq)]
@@ -25,8 +25,8 @@ pub struct Replacer {
     search_history: ComponentHistory,
     replace_history: ComponentHistory,
 
-    searcher: ComponentController,
-    replacer: ComponentController,
+    searcher: LineComponentController,
+    replacer: LineComponentController,
 }
 
 impl Replacer {
@@ -35,7 +35,7 @@ impl Replacer {
 
     pub fn new() -> Self {
         let mut searcher_controller = Self::init_controller();
-        let mut replacer_controller = ComponentController {
+        let mut replacer_controller = LineComponentController {
             prompt: Self::REPLACE_PROMPT,
             button: Self::REPLACE_BUTTON,
             text_area: TextArea::new(Self::REPLACE_PROMPT.len(), Self::REPLACE_BUTTON.len()),
@@ -143,7 +143,7 @@ impl Replacer {
     }
 }
 
-impl Component for Replacer {
+impl LineComponent for Replacer {
     const BUTTON: &'static str = "[Enter]";
     const PROMPT: &'static str = "Search: ";
     const EDITABLE: bool = true;

@@ -8,15 +8,15 @@ use crate::{
 };
 
 use super::{
-    core::{ComponentController, ComponentHistory},
-    Component,
+    core::{LineComponentController, ComponentHistory},
+    LineComponent,
 };
 
 pub struct Finder {
     match_list: LoopTraverser<EditorCursorPos>,
 
     history: ComponentHistory,
-    comp: ComponentController,
+    comp: LineComponentController,
 }
 
 impl Finder {
@@ -74,7 +74,7 @@ impl Finder {
     }
 }
 
-impl Component for Finder {
+impl LineComponent for Finder {
     const PROMPT: &'static str = "Find: ";
     const BUTTON: &'static str = "[(Shift) Enter]";
     const POSITION: isize = -1;

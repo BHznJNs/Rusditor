@@ -23,13 +23,14 @@ use line::EditorLine;
 pub use state::EditorState;
 
 use self::{
+    color::EditorColor,
     event::{EditorEvent, EditorOperation},
-    history::EditorHistory, color::EditorColor,
+    history::EditorHistory,
 };
 
-use super::{components::Finder, direction::Direction};
+use super::{components::{FileOpener, Finder}, direction::Direction};
 use super::{
-    components::{Component, EditorComponentManager, FileSaver, Positioner},
+    components::{EditorComponentManager, FileSaver, LineComponent, Positioner},
     cursor_pos::EditorCursorPos,
 };
 
@@ -100,6 +101,17 @@ impl Editor {
             }
         }
         Cursor::restore_pos()?;
+        return Ok(());
+    }
+
+    fn reset_cursor_pos(&mut self) -> io::Result<()> {
+        Cursor::move_to_row(1)?;
+        let label_width = self.label_width();
+        self.lines[0].move_cursor_to_start(label_width)?;
+
+        self.index = 1;
+        self.overflow_top = 0;
+        self.overflow_bottom = 0;
         return Ok(());
     }
 
@@ -433,6 +445,13 @@ impl Editor {
             EditorState::Saving if FileSaver::is_save_callback_key(key) => {
                 self.dashboard.set_state(EditorState::Saved)?;
             }
+            EditorState::Opening if FileOpener::is_open_file_callback_key(key) => {
+                self.toggle_state(EditorState::Opening)?;
+                let path = self.components.file_opener.get_file_path().to_owned();
+                self.read_file(&path)?;
+                self.render_all()?;
+                self.reset_cursor_pos()?;
+            }
             EditorState::Positioning if Positioner::is_positioning_key(key) => {
                 self.toggle_state(EditorState::Positioning)?;
 
@@ -690,9 +709,9 @@ impl Editor {
     fn toggle_state(&mut self, new_state: EditorState) -> io::Result<()> {
         match self.dashboard.state() {
             // set mode
-            EditorState::Saved | EditorState::Modified if !self.components.is_in_component => {
+            EditorState::Saved | EditorState::Modified if !self.components.use_line_component => {
                 Cursor::save_pos()?;
-                self.components.is_in_component = true;
+                self.components.use_line_component = true;
                 self.dashboard.set_state(new_state)?;
 
                 match new_state {
@@ -701,6 +720,10 @@ impl Editor {
                         let file_saver = &mut self.components.file_saver;
                         file_saver.set_content(current_content);
                         file_saver.open()?;
+                    }
+                    EditorState::Opening => {
+                        let file_opener = &mut self.components.file_opener;
+                        file_opener.open()?;
                     }
                     EditorState::Positioning => {
                         let current_cursor_pos = self.cursor_pos()?;
@@ -718,11 +741,15 @@ impl Editor {
                         replacer.reset();
                         replacer.open()?;
                     }
+                    EditorState::ReadingHelpMsg => {
+                        let helper = &self.components.helper;
+                        helper.open()?;
+                    }
                     _ => unreachable!(),
                 }
             }
             // restore to normal mode
-            s if s == new_state && self.components.is_in_component => {
+            s if s == new_state && self.components.use_line_component => {
                 // restore the covered line
                 let label_width = self.label_width();
                 let covered_pos = Cursor::pos_row()? + self.overflow_top - 1;
@@ -738,7 +765,7 @@ impl Editor {
                 }
                 Cursor::restore_pos()?;
                 self.dashboard.restore_state()?;
-                self.components.is_in_component = false;
+                self.components.use_line_component = false;
             }
             _ => {}
         }
@@ -762,6 +789,8 @@ impl Editor {
                         'z' => self.undo()?,
                         'y' => self.redo()?,
                         's' => self.toggle_state(EditorState::Saving)?,
+                        'o' => self.toggle_state(EditorState::Opening)?,
+                        'h' => self.toggle_state(EditorState::ReadingHelpMsg)?,
                         'g' => self.toggle_state(EditorState::Positioning)?,
                         'f' => self.toggle_state(EditorState::Finding)?,
                         'r' => self.toggle_state(EditorState::Replacing)?,
@@ -772,12 +801,12 @@ impl Editor {
                     _ => {}
                 }
 
-                if !self.components.is_in_component {
+                if !self.components.use_line_component || !self.components.use_screen_component {
                     continue;
                 }
             }
 
-            if self.components.is_in_component {
+            if self.components.use_line_component || self.components.use_screen_component {
                 let current_state = self.dashboard.state();
 
                 if key.code == KeyCode::Esc {

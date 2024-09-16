@@ -1,8 +1,8 @@
 use std::io;
 
 use crate::{
-    editor::{direction::Direction, text_area::TextArea, core::color::EditorColor},
-    utils::{number_bit_count, Cursor},
+    editor::{core::color::EditorColor, direction::Direction, text_area::TextArea},
+    utils::{number_bit_count, Cursor, Terminal},
 };
 
 pub struct EditorLine {
@@ -73,6 +73,11 @@ impl EditorLine {
         self.render_label()?;
         self.text_area.margin_left = label_width;
         self.text_area.render()?;
+
+        let saved_col = Cursor::pos_col()?;
+        Cursor::move_to_col(Terminal::width() - 1)?;
+        print!(" ");
+        Cursor::move_to_col(saved_col)?;
         return Ok(());
     }
 
